@@ -1,5 +1,4 @@
 import streamlit as st
-import psutil, os
 import plotly.graph_objects as go
  
 from config import ROOT_ID, ROOT_NAVN, NIVEAUER, generate_dummy_units
