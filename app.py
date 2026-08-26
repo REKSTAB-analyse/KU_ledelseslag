@@ -1,12 +1,26 @@
+import io
+
 import streamlit as st
 import plotly.graph_objects as go
- 
-from config import ROOT_ID, ROOT_NAVN, NIVEAUER, generate_dummy_units
+from pptx import Presentation
+from pptx.util import Inches
+import matplotlib
+#matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+
+from config import ROOT_ID, ROOT_NAVN, NIVEAUER, load_real_units
 from data.loader import load_logo, logo_base64
+
+# Ret disse to til jeres faktiske skabelon og layoutnavn (samme princip som
+# i create_pptx.py - I finder layoutnavne med:
+# [l.name for l in Presentation(PPTX_SKABELON).slide_layouts])
+PPTX_SKABELON = r"C:\Users\rjp530\Desktop\kontormøde_pptx\ku_skabelon.pptx"
+PPTX_LAYOUT_NAVN = "1_Title and Content"
 
 @st.cache_data
 def load_units():
-    return generate_dummy_units()
+    return load_real_units()
 
 
 def build_lookup_and_rollup(units):
@@ -77,8 +91,129 @@ def leaves_under(children_of, unit_id):
         else:
             leaves.append(k)
     return leaves
- 
- 
+
+def _split_by_omraade(by_id, children_of, enh_uid, omraade_valgt, metric):
+    """
+    Deler en enheds kontorer i to grupper - dem der hører til omraade_valgt,
+    og resten - og returnerer (omraade_vaerdi, rest_vaerdi) for den valgte
+    metric. For "Gns. lønomkostning pr. årsværk" beregnes et separat
+    gennemsnit pr. gruppe (kan ikke stakkes, da et gennemsnit ikke er
+    additivt) - for de to andre metrics summeres der (additive, kan stakkes).
+    """
+    kontor_ids = children_of.get(enh_uid, [])
+    om_ids = [k for k in kontor_ids if by_id[k]["omraade"] == omraade_valgt]
+    rest_ids = [k for k in kontor_ids if by_id[k]["omraade"] != omraade_valgt]
+
+    if metric == "Gns. lønomkostning pr. årsværk":
+        om_av = sum(by_id[k]["aarsvaerk"] for k in om_ids)
+        rest_av = sum(by_id[k]["aarsvaerk"] for k in rest_ids)
+        om_v = (sum(by_id[k]["lonomkostninger"] for k in om_ids) / om_av) if om_av else 0
+        rest_v = (sum(by_id[k]["lonomkostninger"] for k in rest_ids) / rest_av) if rest_av else 0
+    elif metric == "Samlede lønomkostninger":
+        om_v = sum(by_id[k]["lonomkostninger"] for k in om_ids)
+        rest_v = sum(by_id[k]["lonomkostninger"] for k in rest_ids)
+    else:
+        om_v = sum(by_id[k]["aarsvaerk"] for k in om_ids)
+        rest_v = sum(by_id[k]["aarsvaerk"] for k in rest_ids)
+    return om_v, rest_v
+
+def _bar_chart_png(navne, values, farve_hex, metric_label, vaerdi_er_kr, width_in, height_in):
+    """Bygger et vandret søjlediagram med matplotlib - samme stil som appens
+    egne Plotly-diagrammer (KU-farver, størst øverst) - og returnerer det
+    som PNG-bytes i en BytesIO. Kræver ikke Chrome."""
+    farver = [farve_hex] * len(navne) if isinstance(farve_hex, str) else farve_hex
+    colors = [f"#{f}" for f in farver]
+    
+    fig, ax = plt.subplots(figsize=(width_in, height_in), dpi=200)
+    y_pos = range(len(navne))
+    ax.barh(y_pos, values, color=colors)
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels(navne, fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlabel(metric_label, fontsize=9)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    if vaerdi_er_kr:
+        ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:,.0f}".replace(",", ".")))
+
+    for i, v in enumerate(values):
+        label = f"{v:,.0f} kr.".replace(",", ".") if vaerdi_er_kr else f"{v:.1f} årsværk"
+        ax.text(v, i, " " + label, va="center", fontsize=8)
+
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+def build_full_pptx(by_id, children_of, niveau1_ids, metric, metric_value):
+    """
+    Bygger en pptx ud fra KU-skabelonen med native PowerPoint-diagrammer
+    (kræver ikke Chrome/kaleido, i modsætning til billedeksport af plotly-
+    figurer). Slide 1: oversigt over alle CA/KE-enheder. Slide 2-N: én
+    slide PR. ENHED med to diagrammer side om side - overblikket til
+    venstre, enhedens kontorer til højre - dvs. alle enheder, ikke kun
+    den der aktuelt er valgt/vist i appen.
+    """
+    prs = Presentation(PPTX_SKABELON)
+    layout = next((l for l in prs.slide_layouts if l.name == PPTX_LAYOUT_NAVN), None)
+    if layout is None:
+        layout = prs.slide_layouts[min(1, len(prs.slide_layouts) - 1)]
+
+    vaerdi_er_kr = metric != "Antal årsværk"
+
+    def set_title(slide, title):
+        title_ph = next((p for p in slide.placeholders if p.placeholder_format.idx == 0), None)
+        if title_ph is not None:
+            title_ph.text_frame.text = title
+        else:
+            box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.7))
+            box.text_frame.text = title
+
+    # Slide 1: alle CA/KE-enheder
+    navne = [by_id[uid]["navn"] for uid in niveau1_ids]
+    values = [metric_value(uid) for uid in niveau1_ids]
+
+    slide = prs.slides.add_slide(layout)
+    set_title(slide, "Campusadministrationer og koncernenheder")
+    def add_chart_image(slide, left, top, width, height, navne, values, farve_hex):
+        png_buf = _bar_chart_png(
+            navne, values, farve_hex, metric, vaerdi_er_kr,
+            width_in=width.inches, height_in=height.inches,
+        )
+        slide.shapes.add_picture(png_buf, left, top, width=width, height=height)
+    add_chart_image(
+        slide, Inches(0.6), Inches(1.7), Inches(12.1), Inches(5.4),
+        navne, values, "901A1E",
+    )
+
+    # Slide 2..N: én slide pr. enhed, med to diagrammer side om side
+    for uid in niveau1_ids:
+        leaf_ids = leaves_under(children_of, uid)
+        if not leaf_ids:
+            continue
+        leaf_ids = sorted(leaf_ids, key=lambda lid: by_id[lid]["navn"])
+        leaf_navne = [by_id[lid]["navn"] for lid in leaf_ids]
+        leaf_values = [metric_value(lid) for lid in leaf_ids]
+
+        slide = prs.slides.add_slide(layout)
+        set_title(slide, by_id[uid]["navn"])
+        bar_farver = ["901A1E" if uid2 == uid else "E6C9CC" for uid2 in niveau1_ids]
+        add_chart_image(
+            slide, Inches(0.4), Inches(1.7), Inches(6.1), Inches(5.4),
+            navne, values, bar_farver,
+        )
+        add_chart_image(
+            slide, Inches(6.8), Inches(1.7), Inches(6.1), Inches(5.4),
+            leaf_navne, leaf_values, "BAC7D9",
+        )
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf
+
 def main():
     # --- Page config ---
     st.set_page_config(
@@ -125,6 +260,25 @@ def main():
             return by_id[uid]["aarsvaerk"]
  
     y_fmt = "%{y:,.1f} årsværk" if metric == "Antal årsværk" else "%{y:,.0f} kr."
+
+    def _nulstil_valg():
+        st.session_state.pop("valgt_niveau1", None)
+
+    visning = st.radio(
+        "Visning",
+        ["Kontorer", "Administrative områder"],
+        horizontal=True,
+        key="visning_valg",
+        on_change=_nulstil_valg,
+    )
+
+    omraade_valgt = None
+    if visning == "Administrative områder":
+        omraader = sorted(set(
+            u["omraade"] for u in by_id.values()
+            if u.get("niveau") == "Kontor" and u.get("omraade") is not None
+        ))
+        omraade_valgt = st.selectbox("Vælg område", omraader, key="omraade_valg")
  
     col_bar1, col_bar2 = st.columns(2)
  
@@ -133,26 +287,55 @@ def main():
     # -----------------------------------------------------------------
     with col_bar1:
         st.subheader("Campusadministrationer og koncernenheder")
- 
+
         navne = [by_id[uid]["navn"] for uid in niveau1_ids]
-        y = [metric_value(uid) for uid in niveau1_ids]
- 
         value_fmt = "%{x:,.1f} årsværk" if metric == "Antal årsværk" else "%{x:,.0f} kr."
- 
-        fig1 = go.Figure(go.Bar(
-            x=y,
-            y=navne,
-            orientation="h",
-            marker_color="#901A1E",
-            hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
-        ))
-        fig1.update_layout(
-            margin=dict(t=10, l=10, r=10, b=10),
-            height=max(420, 28 * len(navne)),
-            xaxis_title=metric,
-            yaxis=dict(autorange="reversed"),
-        )
- 
+
+        if visning == "Kontorer":
+            y = [metric_value(uid) for uid in niveau1_ids]
+
+            fig1 = go.Figure(go.Bar(
+                x=y,
+                y=navne,
+                orientation="h",
+                marker_color="#901A1E",
+                hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
+            ))
+            fig1.update_layout(
+                barmode="stack",
+                margin=dict(t=40, l=10, r=10, b=50),
+                height=max(420, 28 * len(navne)),
+                xaxis_title=metric,
+                yaxis=dict(autorange="reversed"),
+                legend=dict(orientation="h", yanchor="top", y=-0.22, xanchor="left", x=0),
+            )
+        else:
+            omraade_serie, rest_serie = [], []
+            for uid in niveau1_ids:
+                o, r = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
+                omraade_serie.append(o)
+                rest_serie.append(r)
+
+            fig1 = go.Figure()
+            fig1.add_trace(go.Bar(
+                x=omraade_serie, y=navne, orientation="h", name=omraade_valgt,
+                marker=dict(color="#901A1E"),
+                hovertemplate="<b>%{y}</b><br>" + omraade_valgt + ": " + value_fmt + "<extra></extra>",
+            ))
+            fig1.add_trace(go.Bar(
+                x=rest_serie, y=navne, orientation="h", name="Øvrige",
+                marker=dict(color="#E6C9CC"),
+                hovertemplate="<b>%{y}</b><br>Øvrige: " + value_fmt + "<extra></extra>",
+            ))
+            fig1.update_layout(
+                barmode="stack",
+                margin=dict(t=40, l=10, r=10, b=10),
+                height=max(420, 28 * len(navne)),
+                xaxis_title=metric,
+                yaxis=dict(autorange="reversed"),
+                legend=dict(orientation="h", yanchor="top", y=-0.22, xanchor="left", x=0),
+            )
+
         event = st.plotly_chart(
             fig1,
             key="bar_niveau1",
@@ -160,10 +343,15 @@ def main():
             selection_mode=["points"],
             width="stretch",
         )
- 
+
         if event and event.selection and event.selection["points"]:
-            idx = event.selection["points"][0].get("point_index")
-            if idx is not None:
+            point = event.selection["points"][0]
+            idx = point.get("point_index")
+            curve = point.get("curve_number")
+            # I "Områder"-visning er trace 0 den KU-røde område-del - kun
+            # klik dér skal opdatere højre diagram. I "Kontorer"-visning er
+            # der kun én trace (curve altid 0), så alle klik tæller.
+            if idx is not None and curve == 0:
                 st.session_state.valgt_niveau1 = niveau1_ids[idx]
  
     # -----------------------------------------------------------------
@@ -179,29 +367,56 @@ def main():
             st.error("Klik på en søjle til venstre for at se kontorerne under den enhed.")
         else:
             leaf_ids = leaves_under(children_of, valgt)
-            st.subheader(f"Kontorer under: {by_id[valgt]['navn']}")
- 
+            if visning == "Administrative områder":
+                st.subheader(f"{omraade_valgt}-andel pr. kontor under: {by_id[valgt]['navn']}")
+            else:
+                st.subheader(f"Kontorer under: {by_id[valgt]['navn']}")
+
             if not leaf_ids:
                 st.info("Denne enhed har ingen underliggende kontorer i dummy-dataen.")
             else:
                 leaf_ids = sorted(leaf_ids, key=lambda uid: by_id[uid]["navn"])
                 leaf_navne = [by_id[uid]["navn"] for uid in leaf_ids]
-                leaf_y = [metric_value(uid) for uid in leaf_ids]
- 
+
+                if visning == "Administrative områder":
+                    leaf_y = [
+                        metric_value(uid) if by_id[uid]["omraade"] == omraade_valgt else 0
+                        for uid in leaf_ids
+                    ]
+                    leaf_farver = [
+                        "#901A1E" if by_id[uid]["omraade"] == omraade_valgt else "#E6C9CC"
+                        for uid in leaf_ids
+                    ]
+                else:
+                    leaf_y = [metric_value(uid) for uid in leaf_ids]
+                    leaf_farver = "#BAC7D9"
+
                 fig2 = go.Figure(go.Bar(
                     x=leaf_y,
                     y=leaf_navne,
                     orientation="h",
-                    marker_color="#BAC7D9",
+                    marker_color=leaf_farver,
                     hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
                 ))
                 fig2.update_layout(
-                    margin=dict(t=10, l=10, r=10, b=10),
+                    margin=dict(t=40, l=10, r=10, b=10),
                     height=max(420, 28 * len(leaf_navne)),
                     xaxis_title=metric,
                     yaxis=dict(autorange="reversed"),
                 )
                 st.plotly_chart(fig2, key="bar_kontorer", width="stretch")
+    
+    st.divider()
+    if st.button("Generér PowerPoint med alle enheder"):
+        with st.spinner("Bygger PowerPoint..."):
+            pptx_buf = build_full_pptx(by_id, children_of, niveau1_ids, metric, metric_value)
+        st.download_button(
+            "Download PowerPoint",
+            data=pptx_buf,
+            file_name="ledelseslag_alle_enheder.pptx",
+            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+
  
 if __name__ == "__main__":
     main()
