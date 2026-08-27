@@ -266,7 +266,7 @@ def main():
 
     visning = st.radio(
         "Visning",
-        ["Kontorer", "Administrative områder"],
+        ["Afdelinger", "Administrative områder"],
         horizontal=True,
         key="visning_valg",
         on_change=_nulstil_valg,
@@ -291,7 +291,7 @@ def main():
         navne = [by_id[uid]["navn"] for uid in niveau1_ids]
         value_fmt = "%{x:,.1f} årsværk" if metric == "Antal årsværk" else "%{x:,.0f} kr."
 
-        if visning == "Kontorer":
+        if visning == "Afdelinger":
             y = [metric_value(uid) for uid in niveau1_ids]
 
             fig1 = go.Figure(go.Bar(
@@ -406,6 +406,175 @@ def main():
                 )
                 st.plotly_chart(fig2, key="bar_kontorer", width="stretch")
     
+    st.divider()
+    st.subheader("Fuldt overblik: alle enheder og kontorer")
+
+    overblik_niveau = st.radio(
+        "Vis niveau",
+        ["Niveau 3 (enheder)", "Niveau 4 (kontorer)", "Begge niveauer"],
+        horizontal=True,
+        key="overblik_niveau",
+    )
+    vis_enhed = overblik_niveau in ("Niveau 3 (enheder)", "Begge niveauer")
+    vis_kontor = overblik_niveau in ("Niveau 4 (kontorer)", "Begge niveauer")
+
+    # Fælles x-akse-grænse på tværs af ALLE tre plots, så de er sammenlignelige.
+    alle_vaerdier = []
+    for uid in niveau1_ids:
+        if vis_enhed:
+            alle_vaerdier.append(metric_value(uid))
+        if vis_kontor:
+            for kid in children_of.get(uid, []):
+                alle_vaerdier.append(metric_value(kid))
+    x_maks = max(alle_vaerdier) * 1.05 if alle_vaerdier else 1
+
+    def _unikt_navn(navn, brugte_navne):
+        """
+        Tilføjer et usynligt mellemrum, hvis navnet allerede optræder i
+        samme plot (fx et kontor der hedder det samme som sin enhed) -
+        ellers slår Plotly de to søjler sammen til én, da den kategoriske
+        y-akse matcher på selve teksten, ikke listeposition.
+        """
+        unikt = navn
+        while unikt in brugte_navne:
+            unikt += " "
+        brugte_navne.add(unikt)
+        return unikt
+
+    if overblik_niveau == "Niveau 3 (enheder)":
+        # Ét samlet plot, ligesom fig1 foroven - ingen gruppe/kolonne-opdeling
+        # nødvendig, da der kun er 12 søjler i alt.
+        navne = [by_id[uid]["navn"] for uid in niveau1_ids]
+        vaerdier = [metric_value(uid) for uid in niveau1_ids]
+
+        fig_niveau3 = go.Figure(go.Bar(
+            x=vaerdier,
+            y=navne,
+            orientation="h",
+            marker_color="#901A1E",
+            marker_line_color="white",
+            marker_line_width=1,
+            hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
+        ))
+        fig_niveau3.update_layout(
+            margin=dict(t=40, l=10, r=10, b=10),
+            height=max(420, 28 * len(navne)),
+            xaxis=dict(range=[0, x_maks]),
+            yaxis=dict(autorange="reversed"),
+        )
+        st.plotly_chart(fig_niveau3, key="overblik_niveau3_samlet", width="stretch")
+
+    elif overblik_niveau == "Niveau 4 (kontorer)":
+        # Alle kontorer på tværs af enheder, sorteret efter størrelse og delt
+        # i tre nogenlunde lige store grupper - hver figur starter derfor
+        # med den største i netop den gruppe.
+        alle_kontor_ids = [kid for uid in niveau1_ids for kid in children_of.get(uid, [])]
+        alle_kontor_ids.sort(key=metric_value, reverse=True)
+
+        chunk_n4 = -(-len(alle_kontor_ids) // 3)  # oprund
+        grupper_n4 = [alle_kontor_ids[i:i + chunk_n4] for i in range(0, len(alle_kontor_ids), chunk_n4)]
+        while len(grupper_n4) < 3:
+            grupper_n4.append([])
+
+        kolonner_n4 = st.columns(3)
+        for g_idx, gruppe_kontor_ids in enumerate(grupper_n4):
+            if not gruppe_kontor_ids:
+                continue
+            brugte_navne_n4 = set()
+            navne = [_unikt_navn(by_id[kid]["navn"], brugte_navne_n4) for kid in gruppe_kontor_ids]
+            vaerdier = [metric_value(kid) for kid in gruppe_kontor_ids]
+
+            fig_niveau4 = go.Figure(go.Bar(
+                x=vaerdier,
+                y=navne,
+                orientation="h",
+                marker_color="#BAC7D9",
+                marker_line_color="white",
+                marker_line_width=1,
+                hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
+            ))
+            fig_niveau4.update_layout(
+                margin=dict(t=40, l=10, r=10, b=10),
+                height=max(160, 28 * len(navne) + 60),
+                xaxis=dict(range=[0, x_maks]),
+                yaxis=dict(autorange="reversed"),
+            )
+            with kolonner_n4[g_idx]:
+                st.plotly_chart(fig_niveau4, key=f"overblik_niveau4_plot_{g_idx}", width="stretch")
+
+
+    else:
+
+        # Del de 13 enheder i tre nogenlunde lige store, sammenhængende grupper -
+        # én gruppe pr. kolonne/plot.
+        CA_RAEKKEFOELGE = [
+            "Campusadministration Frederiksberg+",
+            "Campusadministration Nørre",
+            "Campusadministration Søndre",
+        ]
+        ca_ids = sorted(
+            (uid for uid in niveau1_ids if by_id[uid]["navn"] in CA_RAEKKEFOELGE),
+            key=lambda uid: CA_RAEKKEFOELGE.index(by_id[uid]["navn"]),
+        )
+        ovrige_ids = [uid for uid in niveau1_ids if by_id[uid]["navn"] not in CA_RAEKKEFOELGE]
+
+        chunk = -(-len(ovrige_ids) // 3)  # oprund
+        ovrige_grupper = [ovrige_ids[i:i + chunk] for i in range(0, len(ovrige_ids), chunk)]
+        while len(ovrige_grupper) < 3:
+            ovrige_grupper.append([])
+        while len(ca_ids) < 3:
+            ca_ids.append(None)
+
+        grupper = [
+            ([ca] if ca is not None else []) + ovrige
+            for ca, ovrige in zip(ca_ids, ovrige_grupper)
+        ]
+
+        kolonner = st.columns(3)
+        for g_idx, gruppe in enumerate(grupper):
+            navne, vaerdier, farver = [], [], []
+            brugte_navne = set()
+
+            for uid in gruppe:
+                if vis_enhed:
+                    if navne and vis_kontor:  # luft foer alle enheds-soejler undtagen den allerførste i plottet
+                        navne.append(_unikt_navn(" ", brugte_navne))
+                        vaerdier.append(0)
+                        farver.append("rgba(0,0,0,0)")
+                    navne.append(_unikt_navn(by_id[uid]["navn"], brugte_navne))
+                    vaerdier.append(metric_value(uid))
+                    farver.append("#901A1E")
+
+                if vis_kontor:
+                    kontor_ids = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
+                    for kid in kontor_ids:
+                        navne.append(_unikt_navn(by_id[kid]["navn"], brugte_navne))
+                        vaerdier.append(metric_value(kid))
+                        farver.append("#BAC7D9")
+
+            if not navne:
+                continue
+
+            fig_overblik = go.Figure(go.Bar(
+                x=vaerdier,
+                y=navne,
+                orientation="h",
+                marker_color=farver,
+                marker_line_color="white",
+                marker_line_width=1,
+                hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
+            ))
+            fig_overblik.update_layout(
+                margin=dict(t=40, l=10, r=10, b=10),
+                height=max(160, 20 * len(navne) + 60),
+                xaxis=dict(range=[0, x_maks]),
+                yaxis=dict(autorange="reversed"),
+                bargap=0,
+            )
+
+            with kolonner[g_idx]:
+                st.plotly_chart(fig_overblik, key=f"overblik_plot_{g_idx}", width="stretch")
+
     st.divider()
     if st.button("Generér PowerPoint med alle enheder"):
         with st.spinner("Bygger PowerPoint..."):

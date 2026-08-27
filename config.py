@@ -100,6 +100,8 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
     reader = csv.DictReader(io.StringIO(csv_tekst), delimiter=";")
     for row in reader:
         institut = row["Institut"].strip()
+        if institut == "Tilskud":
+            continue
         kontor = row["Kontor"].strip()
 
         if institut not in enh_id_for_institut:
