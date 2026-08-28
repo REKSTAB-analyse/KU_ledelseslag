@@ -261,13 +261,19 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
             key="metric_valg",
         )
 
-        visning = st.radio(
-            "**Vælg, hvordan afdelingerne skal grupperes:**",
-            ["Afdelinger", "Administrative områder"],
-            horizontal=True,
-            key="visning_valg",
+        vis_omraader = st.toggle(
+            "Vis administrative områder",
+            key="vis_omraader_toggle",
             on_change=_nulstil_valg,
         )
+
+        omraade_valgt = None
+        if vis_omraader:
+            omraader = sorted(set(
+                u["omraade"] for u in by_id.values()
+                if u.get("niveau") == "Kontor" and u.get("omraade") is not None
+            ))
+            omraade_valgt = st.selectbox("**Vælg administrativt område:**", omraader, key="omraade_valg")
 
  
     def metric_value(uid):
@@ -281,14 +287,6 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
     y_fmt = "%{y:,.1f} årsværk" if metric == "Antal årsværk" else "%{y:,.0f} kr."
 
     
-    omraade_valgt = None
-    if visning == "Administrative områder":
-        omraader = sorted(set(
-            u["omraade"] for u in by_id.values()
-            if u.get("niveau") == "Kontor" and u.get("omraade") is not None
-        ))
-        omraade_valgt = st.selectbox("**Vælg administrativt område:**", omraader, key="omraade_valg")
- 
     #col_bar1, col_bar2 = st.columns(2)
  
     # -----------------------------------------------------------------
@@ -430,10 +428,16 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
     # Fælles x-akse-grænse på tværs af ALLE tre plots, så de er sammenlignelige.
     alle_vaerdier = []
     for uid in niveau1_ids:
+        if vis_omraader:
+            enhed_v, _ = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
+        else:
+            enhed_v = metric_value(uid)
         if vis_enhed:
-            alle_vaerdier.append(metric_value(uid))
+            alle_vaerdier.append(enhed_v)
         if vis_kontor:
             for kid in children_of.get(uid, []):
+                if vis_omraader and by_id[kid]["omraade"] != omraade_valgt:
+                    continue
                 alle_vaerdier.append(metric_value(kid))
     x_maks = max(alle_vaerdier) * 1.05 if alle_vaerdier else 1
 
@@ -453,8 +457,17 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
     if overblik_niveau == "Niveau 3 (KE/CA)":
         # Ét samlet plot, ligesom fig1 foroven - ingen gruppe/kolonne-opdeling
         # nødvendig, da der kun er 12 søjler i alt.
-        navne = [by_id[uid]["navn"] for uid in niveau1_ids]
-        vaerdier = [metric_value(uid) for uid in niveau1_ids]
+        if vis_omraader:
+            par = []
+            for uid in niveau1_ids:
+                v, _ = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
+                if v > 0:
+                    par.append((by_id[uid]["navn"], v))
+            navne = [p[0] for p in par]
+            vaerdier = [p[1] for p in par]
+        else:
+            navne = [by_id[uid]["navn"] for uid in niveau1_ids]
+            vaerdier = [metric_value(uid) for uid in niveau1_ids]
 
         fig_niveau3 = go.Figure(go.Bar(
             x=vaerdier,
@@ -474,10 +487,9 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
         st.plotly_chart(fig_niveau3, key="overblik_niveau3_samlet", width="stretch")
 
     elif overblik_niveau == "Niveau 4 (kontorer)":
-        # Alle kontorer på tværs af enheder, sorteret efter størrelse og delt
-        # i tre nogenlunde lige store grupper - hver figur starter derfor
-        # med den største i netop den gruppe.
         alle_kontor_ids = [kid for uid in niveau1_ids for kid in children_of.get(uid, [])]
+        if vis_omraader:
+            alle_kontor_ids = [kid for kid in alle_kontor_ids if by_id[kid]["omraade"] == omraade_valgt]
         alle_kontor_ids.sort(key=metric_value, reverse=True)
 
         chunk_n4 = -(-len(alle_kontor_ids) // 3)  # oprund
@@ -545,17 +557,29 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
             brugte_navne = set()
 
             for uid in gruppe:
+                if vis_omraader:
+                    kontor_ids = [
+                        kid for kid in children_of.get(uid, [])
+                        if by_id[kid]["omraade"] == omraade_valgt
+                    ]
+                    if not kontor_ids:
+                        continue  # intet fra denne enhed i det valgte område
+                    enhed_vaerdi, _ = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
+                    kontor_ids = sorted(kontor_ids, key=metric_value, reverse=True)
+                else:
+                    enhed_vaerdi = metric_value(uid)
+                    kontor_ids = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
+
                 if vis_enhed:
-                    if navne and vis_kontor:  # luft foer alle enheds-soejler undtagen den allerførste i plottet
+                    if navne and vis_kontor:
                         navne.append(_unikt_navn(" ", brugte_navne))
                         vaerdier.append(0)
                         farver.append("rgba(0,0,0,0)")
                     navne.append(_unikt_navn(by_id[uid]["navn"], brugte_navne))
-                    vaerdier.append(metric_value(uid))
+                    vaerdier.append(enhed_vaerdi)
                     farver.append("#901A1E")
 
                 if vis_kontor:
-                    kontor_ids = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
                     for kid in kontor_ids:
                         navne.append(_unikt_navn(by_id[kid]["navn"], brugte_navne))
                         vaerdier.append(metric_value(kid))
@@ -597,7 +621,7 @@ Vælg af listen nedenfor, hvilken campusadministration eller koncernenhed du vil
     zoom_valgt_uid = next(uid for uid in niveau1_ids if by_id[uid]["navn"] == zoom_valgt_navn)
 
     leaf_ids = leaves_under(children_of, zoom_valgt_uid)
-    if visning == "Administrative områder":
+    if vis_omraader:
         titeltekst = f"{omraade_valgt}-andel pr. kontor under: {by_id[zoom_valgt_uid]['navn']}"
     else:
         titeltekst = f"Kontorer under: {by_id[zoom_valgt_uid]['navn']}"
@@ -608,7 +632,7 @@ Vælg af listen nedenfor, hvilken campusadministration eller koncernenhed du vil
         leaf_ids = sorted(leaf_ids, key=metric_value, reverse=True)
         leaf_navne = [by_id[uid]["navn"] for uid in leaf_ids]
 
-        if visning == "Administrative områder":
+        if vis_omraader:
             leaf_y = [
                 metric_value(uid) if by_id[uid]["omraade"] == omraade_valgt else 0
                 for uid in leaf_ids
