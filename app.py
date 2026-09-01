@@ -12,9 +12,7 @@ import matplotlib.ticker as mticker
 from config import ROOT_ID, ROOT_NAVN, NIVEAUER, load_real_units
 from data.loader import load_logo, logo_base64
 
-# Ret disse to til jeres faktiske skabelon og layoutnavn (samme princip som
-# i create_pptx.py - I finder layoutnavne med:
-# [l.name for l in Presentation(PPTX_SKABELON).slide_layouts])
+
 PPTX_SKABELON = r"C:\Users\rjp530\Desktop\kontormøde_pptx\ku_skabelon.pptx"
 PPTX_LAYOUT_NAVN = "1_Title and Content"
 
@@ -22,19 +20,18 @@ PPTX_LAYOUT_NAVN = "1_Title and Content"
 def load_units():
     return load_real_units()
 
-
 def build_lookup_and_rollup(units):
     """
     by_id: {id: enhed-dict}, inkl. en tilføjet rod-enhed (ROOT_ID).
     children_of: {parent_id: [child_id, ...]}
-    Aarsvaerk/lonomkostninger rulles op, så ALLE enheder (ikke kun
-    leaf-enheder) har summerede tal.
+    Aarsvaerk/lonomkostninger/medarbejdere rulles op, så ALLE enheder (ikke
+    kun leaf-enheder) har summerede tal.
     """
     by_id = {u["id"]: dict(u) for u in units}
     by_id[ROOT_ID] = {
         "id": ROOT_ID, "navn": ROOT_NAVN, "niveau": "Rod",
         "parent_id": None, "ledelseslag": "Rektorat/direktion",
-        "aarsvaerk": None, "lonomkostninger": None,
+        "aarsvaerk": None, "lonomkostninger": None, "medarbejdere": None,
     }
  
     children_of = {}
@@ -46,15 +43,17 @@ def build_lookup_and_rollup(units):
         u = by_id[unit_id]
         kids = children_of.get(unit_id, [])
         if not kids:
-            return u["aarsvaerk"] or 0.0, u["lonomkostninger"] or 0
-        total_av, total_lon = 0.0, 0
+            return u["aarsvaerk"] or 0.0, u["lonomkostninger"] or 0, u.get("medarbejdere") or 0
+        total_av, total_lon, total_med = 0.0, 0, 0
         for k in kids:
-            av, lon = rollup(k)
+            av, lon, med = rollup(k)
             total_av += av
             total_lon += lon
+            total_med += med
         u["aarsvaerk"] = round(total_av, 1)
         u["lonomkostninger"] = total_lon
-        return total_av, total_lon
+        u["medarbejdere"] = total_med
+        return total_av, total_lon, total_med
  
     rollup(ROOT_ID)
     return by_id, children_of
@@ -231,12 +230,13 @@ def main():
         )
  
     with col_title:
-        st.title("Københavns Universitets ledelseslag")
-    
+        #st.title("Københavns Universitets ledelseslag")
+        st.title("Personale- og lønomkostninger")
+
     st.markdown(
 """
-Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's administrative enheder (campusadministrationer
-og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvilke tal figurene skal vise. 
+Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's administrative enheder (
+koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen nedenfor til at vælge, hvilke tal figurene skal vise. 
 """)
  
     # --- Data: indlæs og rul årsværk/lønomkostninger op gennem hierarkiet ---
@@ -277,12 +277,17 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
 
  
     def metric_value(uid):
+        u = by_id[uid]
         if metric == "Gns. lønomkostning pr. årsværk":
             return gns_loen(by_id, uid)
+        elif metric == "Gns. lønomkostning pr. medarbejder":
+            return (u["lonomkostninger"] / u["medarbejdere"]) if u.get("medarbejdere") else 0
         elif metric == "Samlede lønomkostninger":
-            return by_id[uid]["lonomkostninger"]
+            return u["lonomkostninger"]
+        elif metric == "Antal medarbejdere":
+            return u["medarbejdere"]
         else:
-            return by_id[uid]["aarsvaerk"]
+            return u["aarsvaerk"]
  
     y_fmt = "%{y:,.1f} årsværk" if metric == "Antal årsværk" else "%{y:,.0f} kr."
 
@@ -297,6 +302,17 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
 
         #navne = [by_id[uid]["navn"] for uid in niveau1_ids]
     value_fmt = "%{x:,.1f} årsværk" if metric == "Antal årsværk" else "%{x:,.0f} kr."
+    if metric == "Antal årsværk":
+        value_fmt = "%{x:,.1f} årsværk"
+    elif metric == "Antal medarbejdere":
+        value_fmt = "%{x:,.0f} medarbejdere"
+    elif metric == "Gns. lønomkostning pr. årsværk":
+        value_fmt = "%{x:,.0f} kr. pr. årsværk"
+    elif metric == "Gns. lønomkostning pr. medarbejder":
+        value_fmt = "%{x:,.0f} kr. pr. medarbejder"
+    else:
+        value_fmt = "%{x:,.0f} kr."
+
 
         #if visning == "Afdelinger":
             #y = [metric_value(uid) for uid in niveau1_ids]
@@ -396,7 +412,7 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
                     #]
                 #else:
                     #leaf_y = [metric_value(uid) for uid in leaf_ids]
-                    #leaf_farver = "#BAC7D9"
+                    #leaf_farver = "#7992b5"
 
                 #fig2 = go.Figure(go.Bar(
                     #x=leaf_y,
@@ -429,15 +445,14 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
     alle_vaerdier = []
     for uid in niveau1_ids:
         if vis_omraader:
-            enhed_v, _ = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
+            enhed_om, enhed_rest = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
+            enhed_total = enhed_om + enhed_rest
         else:
-            enhed_v = metric_value(uid)
+            enhed_total = metric_value(uid)
         if vis_enhed:
-            alle_vaerdier.append(enhed_v)
+            alle_vaerdier.append(enhed_total)
         if vis_kontor:
             for kid in children_of.get(uid, []):
-                if vis_omraader and by_id[kid]["omraade"] != omraade_valgt:
-                    continue
                 alle_vaerdier.append(metric_value(kid))
     x_maks = max(alle_vaerdier) * 1.05 if alle_vaerdier else 1
 
@@ -454,76 +469,262 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
         brugte_navne.add(unikt)
         return unikt
 
-    if overblik_niveau == "Niveau 3 (KE/CA)":
-        # Ét samlet plot, ligesom fig1 foroven - ingen gruppe/kolonne-opdeling
-        # nødvendig, da der kun er 12 søjler i alt.
-        if vis_omraader:
-            par = []
-            for uid in niveau1_ids:
-                v, _ = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
-                if v > 0:
-                    par.append((by_id[uid]["navn"], v))
-            navne = [p[0] for p in par]
-            vaerdier = [p[1] for p in par]
-        else:
-            navne = [by_id[uid]["navn"] for uid in niveau1_ids]
-            vaerdier = [metric_value(uid) for uid in niveau1_ids]
+    def _akse_label(metric):
+        """Metricnavnet + dets enhed, til brug som x-akse-titel."""
+        if metric == "Antal årsværk":
+            return f"{metric} (årsværk)"
+        elif metric == "Antal medarbejdere":
+            return f"{metric} (medarbejdere)"
+        elif metric == "Gns. lønomkostning pr. årsværk":
+            return f"{metric} (kr. pr. årsværk)"
+        elif metric == "Gns. lønomkostning pr. medarbejder":
+            return f"{metric} (kr. pr. medarbejder)"
+        return f"{metric} (kr.)"
 
-        fig_niveau3 = go.Figure(go.Bar(
-            x=vaerdier,
+    if overblik_niveau == "Niveau 3 (KE/CA)":
+        # Ét samlet plot. Klik på en enheds-søjle folder dens kontorer ud lige
+        # under den - flere enheder kan være udfoldet samtidig.
+        if "niveau3_udvidet" not in st.session_state:
+            st.session_state.niveau3_udvidet = set()
+
+        if vis_omraader:
+            enheder_at_vise = []
+            for uid in niveau1_ids:
+                om_v, rest_v = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
+                enheder_at_vise.append((uid, om_v, rest_v))
+        else:
+            enheder_at_vise = [(uid, metric_value(uid), 0) for uid in niveau1_ids]
+
+        navne, om_vaerdier, rest_vaerdier, om_kleur, klik_uid = [], [], [], [], []
+        for uid, om_v, rest_v in enheder_at_vise:
+            navne.append(by_id[uid]["navn"])
+            om_vaerdier.append(om_v)
+            rest_vaerdier.append(rest_v)
+            om_kleur.append("#901A1E")
+            klik_uid.append(uid)
+
+            if uid in st.session_state.niveau3_udvidet:
+                if vis_omraader:
+                    kontor_ids = [
+                        kid for kid in children_of.get(uid, [])
+                        if by_id[kid]["omraade"] == omraade_valgt
+                    ]
+                else:
+                    kontor_ids = children_of.get(uid, [])
+                kontor_ids = sorted(kontor_ids, key=metric_value, reverse=True)
+                for kid in kontor_ids:
+                    navne.append(by_id[kid]["navn"])
+                    om_vaerdier.append(metric_value(kid))
+                    rest_vaerdier.append(0)
+                    om_kleur.append("#7992b5")
+                    klik_uid.append(None)
+
+        brugte_navne_n3 = set()
+        navne, om_vaerdier, rest_vaerdier, om_kleur, klik_uid = [], [], [], [], []
+
+        for uid, om_v, rest_v in enheder_at_vise:
+            navne.append(by_id[uid]["navn"])
+            om_vaerdier.append(om_v)
+            rest_vaerdier.append(rest_v)
+            om_kleur.append("#901A1E")
+            klik_uid.append(uid)
+
+            if uid in st.session_state.niveau3_udvidet:
+                if vis_omraader:
+                    alle_kontorer = children_of.get(uid, [])
+                    kontor_ids_match = sorted(
+                        (kid for kid in alle_kontorer if by_id[kid]["omraade"] == omraade_valgt),
+                        key=metric_value, reverse=True,
+                    )
+                    kontor_ids_oevrige = sorted(
+                        (kid for kid in alle_kontorer if by_id[kid]["omraade"] != omraade_valgt),
+                        key=metric_value, reverse=True,
+                    )
+                    for kid in kontor_ids_match:
+                        navne.append(by_id[kid]["navn"])
+                        om_vaerdier.append(metric_value(kid))
+                        rest_vaerdier.append(0)
+                        om_kleur.append("#7992b5")
+                        klik_uid.append(None)
+                    for kid in kontor_ids_oevrige:
+                        navne.append(by_id[kid]["navn"])
+                        om_vaerdier.append(metric_value(kid))
+                        rest_vaerdier.append(0)
+                        om_kleur.append("#cad4e2")
+                        klik_uid.append(None)
+                else:
+                    kontor_ids = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
+                    for kid in kontor_ids:
+                        navne.append(by_id[kid]["navn"])
+                        om_vaerdier.append(metric_value(kid))
+                        rest_vaerdier.append(0)
+                        om_kleur.append("#7992b5")
+                        klik_uid.append(None)
+
+        brugte_navne_n3 = set()
+        navne = [_unikt_navn(n, brugte_navne_n3) for n in navne]
+
+        fig_niveau3 = go.Figure()
+        fig_niveau3.add_trace(go.Bar(
+            x=om_vaerdier,
             y=navne,
             orientation="h",
-            marker_color="#901A1E",
+            name=omraade_valgt if vis_omraader else metric,
+            marker_color=om_kleur,
             marker_line_color="white",
             marker_line_width=1,
             hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
         ))
-        fig_niveau3.update_layout(
-            margin=dict(t=40, l=10, r=10, b=10),
-            height=max(420, 28 * len(navne)),
-            xaxis=dict(range=[0, x_maks]),
-            yaxis=dict(autorange="reversed"),
-        )
-        st.plotly_chart(fig_niveau3, key="overblik_niveau3_samlet", width="stretch")
-
-    elif overblik_niveau == "Niveau 4 (kontorer)":
-        alle_kontor_ids = [kid for uid in niveau1_ids for kid in children_of.get(uid, [])]
         if vis_omraader:
-            alle_kontor_ids = [kid for kid in alle_kontor_ids if by_id[kid]["omraade"] == omraade_valgt]
-        alle_kontor_ids.sort(key=metric_value, reverse=True)
+            fig_niveau3.add_trace(go.Bar(
+                x=rest_vaerdier,
+                y=navne,
+                orientation="h",
+                name="Øvrige",
+                marker_color="#E6C9CC",
+                marker_line_color="white",
+                marker_line_width=1,
+                hovertemplate="<b>%{y}</b><br>Øvrige: " + value_fmt + "<extra></extra>",
+            ))
+        fig_niveau3.update_layout(
+            barmode="stack",
+            title=f"{metric} for niveau 3",
+            margin=dict(t=60, l=10, r=10, b=10),
+            height=max(420, 20 * len(navne)),
+            xaxis=dict(title=_akse_label(metric)),
+            yaxis=dict(autorange="reversed"),
+            bargap=0,
+        )
 
-        chunk_n4 = -(-len(alle_kontor_ids) // 3)  # oprund
-        grupper_n4 = [alle_kontor_ids[i:i + chunk_n4] for i in range(0, len(alle_kontor_ids), chunk_n4)]
-        while len(grupper_n4) < 3:
-            grupper_n4.append([])
+        event_n3 = st.plotly_chart(
+            fig_niveau3,
+            key="overblik_niveau3_samlet",
+            on_select="rerun",
+            selection_mode=["points"],
+            width="stretch",
+        )
+
+        if event_n3 and event_n3.selection and event_n3.selection["points"]:
+            idx = event_n3.selection["points"][0].get("point_index")
+            if idx is not None and idx < len(klik_uid) and klik_uid[idx] is not None:
+                klikket_uid = klik_uid[idx]
+                if klikket_uid in st.session_state.niveau3_udvidet:
+                    st.session_state.niveau3_udvidet.discard(klikket_uid)
+                else:
+                    st.session_state.niveau3_udvidet.add(klikket_uid)
+                st.rerun()
+        
+        st.caption("Klik på en søjle ovenfor for at folde dens afdelinger ud.")
+
+    elif overblik_niveau == "Niveau 4 (afdelinger)":
+        # Samme klyngestruktur som Begge niveauer (CA/KE øverst i hver
+        # gruppe), men uden en rigtig enheds-søjle - kun en tom
+        # "overskrift"-søjle med enhedens navn som label, efterfulgt af
+        # dens kontorer.
+        CA_RAEKKEFOELGE = [
+            "Campusadministration Frederiksberg+",
+            "Campusadministration Nørre",
+            "Campusadministration Søndre",
+        ]
+        ca_ids = sorted(
+            (uid for uid in niveau1_ids if by_id[uid]["navn"] in CA_RAEKKEFOELGE),
+            key=lambda uid: CA_RAEKKEFOELGE.index(by_id[uid]["navn"]),
+        )
+        ovrige_ids = [uid for uid in niveau1_ids if by_id[uid]["navn"] not in CA_RAEKKEFOELGE]
+
+        chunk_n4 = -(-len(ovrige_ids) // 3)  # oprund
+        ovrige_grupper_n4 = [ovrige_ids[i:i + chunk_n4] for i in range(0, len(ovrige_ids), chunk_n4)]
+        while len(ovrige_grupper_n4) < 3:
+            ovrige_grupper_n4.append([])
+        while len(ca_ids) < 3:
+            ca_ids.append(None)
+
+        grupper_n4 = [
+            ([ca] if ca is not None else []) + ovrige
+            for ca, ovrige in zip(ca_ids, ovrige_grupper_n4)
+        ]
 
         kolonner_n4 = st.columns(3)
-        for g_idx, gruppe_kontor_ids in enumerate(grupper_n4):
-            if not gruppe_kontor_ids:
-                continue
+        for g_idx, gruppe in enumerate(grupper_n4):
+            navne, vaerdier, om_kleur, overskrift_navne = [], [], [], []
             brugte_navne_n4 = set()
-            navne = [_unikt_navn(by_id[kid]["navn"], brugte_navne_n4) for kid in gruppe_kontor_ids]
-            vaerdier = [metric_value(kid) for kid in gruppe_kontor_ids]
+
+            for uid in gruppe:
+                if vis_omraader:
+                    alle_kontorer = children_of.get(uid, [])
+                    kontor_ids_match = sorted(
+                        (kid for kid in alle_kontorer if by_id[kid]["omraade"] == omraade_valgt),
+                        key=metric_value, reverse=True,
+                    )
+                    kontor_ids_oevrige = sorted(
+                        (kid for kid in alle_kontorer if by_id[kid]["omraade"] != omraade_valgt),
+                        key=metric_value, reverse=True,
+                    )
+                    kontor_ids_samlet = kontor_ids_match + kontor_ids_oevrige
+                    farve_pr_kontor = ["#7992b5"] * len(kontor_ids_match) + ["#DCE3EC"] * len(kontor_ids_oevrige)
+                else:
+                    kontor_ids_samlet = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
+                    farve_pr_kontor = ["#7992b5"] * len(kontor_ids_samlet)
+
+                if not kontor_ids_samlet:
+                    continue  # ingen kontorer at vise for denne enhed
+
+                if navne:  # luft foer alle overskrifter undtagen den foerste i plottet
+                    navne.append(_unikt_navn(" ", brugte_navne_n4))
+                    vaerdier.append(0)
+                    om_kleur.append("rgba(0,0,0,0)")
+
+                # Overskrift: tom søjle - navnet vises som annotation INDE i
+                # plottet i stedet for som akse-label, se tickvals nedenfor.
+                overskrift_id = _unikt_navn(by_id[uid]["navn"], brugte_navne_n4)
+                navne.append(overskrift_id)
+                vaerdier.append(0)
+                om_kleur.append("rgba(0,0,0,0)")
+                overskrift_navne.append((overskrift_id, by_id[uid]["navn"]))
+
+                for kid, farve in zip(kontor_ids_samlet, farve_pr_kontor):
+                    navne.append(_unikt_navn(by_id[kid]["navn"], brugte_navne_n4))
+                    vaerdier.append(metric_value(kid))
+                    om_kleur.append(farve)
+
+            if not navne:
+                continue
 
             fig_niveau4 = go.Figure(go.Bar(
                 x=vaerdier,
                 y=navne,
                 orientation="h",
-                marker_color="#BAC7D9",
+                marker_color=om_kleur,
                 marker_line_color="white",
                 marker_line_width=1,
                 hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
             ))
+
+            # Kun kontor-rækkerne skal have en akse-label i margenen -
+            # overskrifterne vises i stedet som annotationer inde i plottet.
+            overskrift_ids = {oid for oid, _ in overskrift_navne}
+            tick_rækker = [n for n in navne if n not in overskrift_ids]
+
+            for overskrift_id, visningsnavn in overskrift_navne:
+                fig_niveau4.add_annotation(
+                    x=-0.0, y=overskrift_id,
+                    xref="paper", yref="y",
+                    text=visningsnavn,
+                    showarrow=False,
+                    xanchor="center",
+                    font=dict(size=12, color="#838697"),  # samme font som akse-labels
+                )
+
             fig_niveau4.update_layout(
-                margin=dict(t=40, l=10, r=10, b=10),
-                height=max(160, 28 * len(navne) + 60),
-                xaxis=dict(range=[0, x_maks]),
-                yaxis=dict(autorange="reversed"),
+                title=f"{metric} for niveau 4" if g_idx == 0 else " ",
+                margin=dict(t=60, l=20, r=10, b=10),
+                height=max(160, 20 * len(navne) + 60),
+                xaxis=dict(title=_akse_label(metric)),
+                yaxis=dict(autorange="reversed", tickmode="array", tickvals=tick_rækker, ticktext=tick_rækker),
+                bargap=0,
             )
             with kolonner_n4[g_idx]:
                 st.plotly_chart(fig_niveau4, key=f"overblik_niveau4_plot_{g_idx}", width="stretch")
-
-
     else:
 
         # Del de 13 enheder i tre nogenlunde lige store, sammenhængende grupper -
@@ -553,121 +754,147 @@ og koncernenheder) og deres afdelinger. Brug menuen nedenfor til at vælge, hvil
 
         kolonner = st.columns(3)
         for g_idx, gruppe in enumerate(grupper):
-            navne, vaerdier, farver = [], [], []
+            navne, om_vaerdier, rest_vaerdier, om_kleur = [], [], [], []
             brugte_navne = set()
 
             for uid in gruppe:
                 if vis_omraader:
-                    kontor_ids = [
-                        kid for kid in children_of.get(uid, [])
-                        if by_id[kid]["omraade"] == omraade_valgt
-                    ]
+                    alle_kontorer = children_of.get(uid, [])
+                    kontor_ids_match = sorted(
+                        (kid for kid in alle_kontorer if by_id[kid]["omraade"] == omraade_valgt),
+                        key=metric_value, reverse=True,
+                    )
+                    kontor_ids_oevrige = sorted(
+                        (kid for kid in alle_kontorer if by_id[kid]["omraade"] != omraade_valgt),
+                        key=metric_value, reverse=True,
+                    )
+                    kontor_ids = kontor_ids_match + kontor_ids_oevrige
+                    farve_pr_kontor = ["#7992b5"] * len(kontor_ids_match) + ["#DCE3EC"] * len(kontor_ids_oevrige)
                     if not kontor_ids:
-                        continue  # intet fra denne enhed i det valgte område
-                    enhed_vaerdi, _ = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
-                    kontor_ids = sorted(kontor_ids, key=metric_value, reverse=True)
+                        continue  # ingen kontorer overhovedet under denne enhed
+                    enhed_om, enhed_rest = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
                 else:
-                    enhed_vaerdi = metric_value(uid)
+                    enhed_om, enhed_rest = metric_value(uid), 0
                     kontor_ids = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
+                    farve_pr_kontor = ["#7992b5"] * len(kontor_ids)
 
                 if vis_enhed:
                     if navne and vis_kontor:
                         navne.append(_unikt_navn(" ", brugte_navne))
-                        vaerdier.append(0)
-                        farver.append("rgba(0,0,0,0)")
+                        om_vaerdier.append(0)
+                        rest_vaerdier.append(0)
+                        om_kleur.append("rgba(0,0,0,0)")
                     navne.append(_unikt_navn(by_id[uid]["navn"], brugte_navne))
-                    vaerdier.append(enhed_vaerdi)
-                    farver.append("#901A1E")
+                    om_vaerdier.append(enhed_om)
+                    rest_vaerdier.append(enhed_rest)
+                    om_kleur.append("#901A1E")
 
                 if vis_kontor:
-                    for kid in kontor_ids:
+                    for kid, farve in zip(kontor_ids, farve_pr_kontor):
                         navne.append(_unikt_navn(by_id[kid]["navn"], brugte_navne))
-                        vaerdier.append(metric_value(kid))
-                        farver.append("#BAC7D9")
+                        om_vaerdier.append(metric_value(kid))
+                        rest_vaerdier.append(0)
+                        om_kleur.append(farve)
 
             if not navne:
                 continue
 
-            fig_overblik = go.Figure(go.Bar(
-                x=vaerdier,
+            fig_overblik = go.Figure()
+            fig_overblik.add_trace(go.Bar(
+                x=om_vaerdier,
                 y=navne,
                 orientation="h",
-                marker_color=farver,
+                name=omraade_valgt if vis_omraader else metric,
+                marker_color=om_kleur,
                 marker_line_color="white",
                 marker_line_width=1,
                 hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
             ))
+            if vis_omraader:
+                fig_overblik.add_trace(go.Bar(
+                    x=rest_vaerdier,
+                    y=navne,
+                    orientation="h",
+                    name="Øvrige",
+                    marker_color="#E6C9CC",
+                    marker_line_color="white",
+                    marker_line_width=1,
+                    hovertemplate="<b>%{y}</b><br>Øvrige: " + value_fmt + "<extra></extra>",
+                ))
             fig_overblik.update_layout(
-                margin=dict(t=40, l=10, r=10, b=10),
+                barmode="stack",
+                title=f"{metric} for niveau 3 og 4" if g_idx == 0 else "",
+                margin=dict(t=60, l=10, r=10, b=70 if g_idx == 1 else 10),
                 height=max(160, 20 * len(navne) + 60),
-                xaxis=dict(range=[0, x_maks]),
+                xaxis=dict(range=[0, x_maks], title=_akse_label(metric)),
                 yaxis=dict(autorange="reversed"),
                 bargap=0,
+                showlegend=(g_idx == 4),
+                legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
             )
 
             with kolonner[g_idx]:
                 st.plotly_chart(fig_overblik, key=f"overblik_plot_{g_idx}", width="stretch")
-
-    st.divider()
+    #st.divider()
 
     #st.subheader("Se én KE/CA i detaljer")
-    st.markdown(
-"""
-Vælg af listen nedenfor, hvilken campusadministration eller koncernenhed du vil se nærmere på. 
-""")
+    #st.markdown(
+#"""
+#Vælg af listen nedenfor, hvilken campusadministration eller koncernenhed du vil se nærmere på. 
+#""")
 
-    zoom_navne = [by_id[uid]["navn"] for uid in niveau1_ids]
-    zoom_valgt_navn = st.selectbox("**Vælg enhed:**", zoom_navne, key="zoom_valg")
-    zoom_valgt_uid = next(uid for uid in niveau1_ids if by_id[uid]["navn"] == zoom_valgt_navn)
+    #zoom_navne = [by_id[uid]["navn"] for uid in niveau1_ids]
+    #zoom_valgt_navn = st.selectbox("**Vælg enhed:**", zoom_navne, key="zoom_valg")
+    #zoom_valgt_uid = next(uid for uid in niveau1_ids if by_id[uid]["navn"] == zoom_valgt_navn)
 
-    leaf_ids = leaves_under(children_of, zoom_valgt_uid)
-    if vis_omraader:
-        titeltekst = f"{omraade_valgt}-andel pr. kontor under: {by_id[zoom_valgt_uid]['navn']}"
-    else:
-        titeltekst = f"Kontorer under: {by_id[zoom_valgt_uid]['navn']}"
+    #leaf_ids = leaves_under(children_of, zoom_valgt_uid)
+    #if vis_omraader:
+        #titeltekst = f"{omraade_valgt}-andel pr. kontor under: {by_id[zoom_valgt_uid]['navn']}"
+    #else:
+        #titeltekst = f"Kontorer under: {by_id[zoom_valgt_uid]['navn']}"
 
-    if not leaf_ids:
-        st.info("Denne enhed har ingen underliggende kontorer.")
-    else:
-        leaf_ids = sorted(leaf_ids, key=metric_value, reverse=True)
-        leaf_navne = [by_id[uid]["navn"] for uid in leaf_ids]
+    #if not leaf_ids:
+        #st.info("Denne enhed har ingen underliggende kontorer.")
+    #else:
+        #leaf_ids = sorted(leaf_ids, key=metric_value, reverse=True)
+        #leaf_navne = [by_id[uid]["navn"] for uid in leaf_ids]
 
-        if vis_omraader:
-            leaf_y = [
-                metric_value(uid) if by_id[uid]["omraade"] == omraade_valgt else 0
-                for uid in leaf_ids
-            ]
-            leaf_farver = [
-                "#901A1E" if by_id[uid]["omraade"] == omraade_valgt else "#E6C9CC"
-                for uid in leaf_ids
-            ]
-        else:
-            leaf_y = [metric_value(uid) for uid in leaf_ids]
-            leaf_farver = "#BAC7D9"
+        #if vis_omraader:
+            #leaf_y = [
+                #metric_value(uid) if by_id[uid]["omraade"] == omraade_valgt else 0
+                #for uid in leaf_ids
+            #]
+            #leaf_farver = [
+                #"#901A1E" if by_id[uid]["omraade"] == omraade_valgt else "#E6C9CC"
+                #for uid in leaf_ids
+            #]
+        #else:
+            #leaf_y = [metric_value(uid) for uid in leaf_ids]
+            #leaf_farver = "#7992b5"
 
-        fig_zoom = go.Figure(go.Bar(
-            x=leaf_y,
-            y=leaf_navne,
-            orientation="h",
-            marker_color=leaf_farver,
-            marker_line_color="white",
-            marker_line_width=1,
-            hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
-        ))
-        fig_zoom.update_layout(
-            margin=dict(t=60, l=10, r=10, b=10),
-            height=max(420, 28 * len(leaf_navne)),
-            title=titeltekst,
-            xaxis_title=metric,
-            yaxis=dict(autorange="reversed"),
-        )
-        st.plotly_chart(fig_zoom, key="bar_zoom", width="stretch")
+        #fig_zoom = go.Figure(go.Bar(
+            #x=leaf_y,
+            #y=leaf_navne,
+            #orientation="h",
+            #marker_color=leaf_farver,
+            #marker_line_color="white",
+            #marker_line_width=1,
+            #hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
+        #))
+        #fig_zoom.update_layout(
+            #margin=dict(t=60, l=10, r=10, b=10),
+            #height=max(420, 28 * len(leaf_navne)),
+            #title=titeltekst,
+            #xaxis_title=_akse_label(metric),
+            #yaxis=dict(autorange="reversed"),
+        #)
+        #st.plotly_chart(fig_zoom, key="bar_zoom", width="stretch")
 
 
 
-    st.divider()
+    st.markdown(" \n ")
 
-    if st.button("Generér PowerPoint med alle enheder"):
+    if st.button("Generér PowerPoint med alle KE/CA"):
         with st.spinner("Bygger PowerPoint..."):
             pptx_buf = build_full_pptx(by_id, children_of, niveau1_ids, metric, metric_value)
         st.download_button(
@@ -676,6 +903,15 @@ Vælg af listen nedenfor, hvilken campusadministration eller koncernenhed du vil
             file_name="ledelseslag_alle_enheder.pptx",
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         )
+    
+    # Footer
+    st.markdown(f"""
+<hr style="margin-top: 50px;">
+<div style="text-align:center; color:#666; font-size: 0.9em;">
+  REKSTAB Analyse · Amanda Schramm Petersen · <a href="mailto:ascp@adm.ku.dk">ascp@adm.ku.dk</a>
+  · opdateret 1. september 2026
+</div>
+""", unsafe_allow_html=True)
  
 if __name__ == "__main__":
     main()

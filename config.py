@@ -108,13 +108,14 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
             enh_id = institut
             ledelseslag = "Campusdirektør" if institut in CAMPUSDIREKTOER_ENHEDER else "Vicedirektør"
             units.append({
-                 "id": enh_id,
-                  "navn": institut,
-                  "niveau": "Enhed",
-                  "parent_id": ROOT_ID,
-                  "ledelseslag": ledelseslag,
-                   "aarsvaerk": None,
-                   "lonomkostninger": None,
+                "id": enh_id,
+                "navn": institut,
+                "niveau": "Enhed",
+                "parent_id": ROOT_ID,
+                "ledelseslag": ledelseslag,   
+                "aarsvaerk": None,
+                "lonomkostninger": None,
+                "medarbejdere": None,
             })
             enh_id_for_institut[institut] = enh_id
 
@@ -131,6 +132,7 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
             "omraade": omraade,
             "aarsvaerk": float(row["antal_aarsvaerk"]),
             "lonomkostninger": float(row["lonomkostninger"]),
+            "medarbejdere": float(row["antal_medarbejdere"]),
         })
 
     return units
