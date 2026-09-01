@@ -1,4 +1,4 @@
-﻿Type;Navn;Forkortet navn
+﻿﻿Type;Navn;Forkortet navn
 Enhed;Campusadministration Frederiksberg+;CA FRB
 Enhed;Campusadministration Nørre;CA NØRRE
 Enhed;Campusadministration Søndre;CA SØNDRE
@@ -14,19 +14,21 @@ Enhed;Rektoratets stab;KU REKSTAB
 Enhed;Tilskud;NA
 Kontor;Afdelingsledelse;NA
 Kontor;Analyse og Business Intelligence;ABI
-Kontor;Byggeri & Bygherre Programmer og Projekter;Byggeri
-Kontor;Bygninger CAF+;Bygninger
-Kontor;Bygninger CAN;Bygninger
-Kontor;Bygninger CAS;Bygninger
+Kontor;Byggeri & Bygherre Programmer og Projekter;Byg.
+Kontor;Byggeri;Byg.
+Kontor;Bygninger CAF+;Byg.
+Kontor;Bygninger CAN;Byg.
+Kontor;Bygninger CAS;Byg.
 Kontor;Campusdirektør Frederiksberg+;NA
 Kontor;Campusdirektør Nørre;NA
 Kontor;Campusdirektør Søndre;NA
-Kontor;Digital Forretningsunderstøttelse. FM udvikling og standardisering. Strategi og Styring;Strategi og Styring; DFS
+Kontor;Digital Forretningsunderstøttelse. FM udvikling og standardisering. Strategi og Styring;S&S
+Kontor;Strategi og Styring;S&S
 Kontor;Digital Transformation;DT
 Kontor;Digitale løsninger administration;DL-Adm
 Kontor;Digitale løsninger uddannelse;DL-Udd
 Kontor;Digitale løsninger. forskning. undervisning og produktion;DL-FUP
-Kontor;Digitalisering KU UDD. Digitalisering. Eksamen og Lokaleplanlægning. Eksamen and 1 more;Digitalisering
+Kontor;Digitalisering KU UDD. Digitalisering. Eksamen og Lokaleplanlægning. Eksamen and 1 more;Digi.
 Kontor;Eksterne Samarbejder og Ledelsesbetjening;ESL
 Kontor;Fora. Policy og Internationale Samarbejder;FPI
 Kontor;Forsknings og IP jura;F&IP-jura
@@ -49,20 +51,21 @@ Kontor;KU Bygninger;NA
 Kontor;KU HR;NA
 Kontor;KU Innovation og Erhvervssamarbejde;NA
 Kontor;KU Kommunikation;KU KOM
-Kontor;KU LighthouseKU Lighthouse
+Kontor;KU Lighthouse;KU LH
 Kontor;KU Uddannelse;NA
 Kontor;KU Økonomi;NA
-Kontor;Kommunikation Frederiksberg+;Kommunikation
-Kontor;Kommunikation Nørre;Kommunikation
-Kontor;Kommunikation Søndre;Kommunikation
-Kontor;Koncern Bygningsøkonomi;Koncernbyg.
-Kontor;Koncern Indkøb;Koncernindk.
+Kontor;Kommunikation;Kom.
+Kontor;Kommunikation Frederiksberg+;Kom.
+Kontor;Kommunikation Nørre;Kom.
+Kontor;Kommunikation Søndre;Kom.
+Kontor;Koncern Bygningsøkonomi;K.Byg.
+Kontor;Koncern Indkøb;K.Indk.
 Kontor;Koncern Regnskab;K.Regn.
-Kontor;Koncern Økonomi;Koncernøko.
+Kontor;Koncern Økonomi;K.Øko.
 Kontor;Ph.D Administration;Ph.D.-adm.
 Kontor;Plan;Plan
 Kontor;Rammer og styring;R&S
-Kontor;Rektorat;Rektoratet
+Kontor;Rektorat;Rek.
 Kontor;Rektoratets stab;NA
 Kontor;Strategi. Udvikling og Styring;SUS
 Kontor;Studenterambassadøren;Stud.amb.

@@ -1,5 +1,6 @@
 import csv
 import io
+import os
 
 import paramiko
 import streamlit as st
@@ -14,8 +15,8 @@ ROOT_ID = "KU"
 ROOT_NAVN = "Københavns Universitet"
 
 INSTITUT_KONTOR_FIL = "institut_kontor.csv"
+FORKORTELSER_FIL = os.path.join(os.path.dirname(__file__), "navne_til_forkortelse.csv")
 ENCODING = "utf-8-sig"
-
 # Kun disse tre ledes af en campusdirektør - resten (koncernenheder,
 # Rektoratets Stab, Tilskud m.fl.) ledes af en vicedirektør. Bruges også i
 # administrativt_omraade() til at afgøre, om et kontor-navnepræfiks skal
@@ -80,6 +81,39 @@ def _load_csv_from_erda(filename: str) -> str:
         raw = f.read()
     return raw.decode(ENCODING)
 
+def _load_forkortelser(filename: str = FORKORTELSER_FIL):
+    """
+    Indlæser (Type, Navn) -> Forkortet navn fra navne_til_forkortelse.csv,
+    som ligger lokalt i GitHub-repoet (samme mappe som denne fil) - IKKE
+    på ERDA, da den ikke indeholder følsomme data, kun navne/forkortelser.
+
+    Nøglen inkluderer Type, fordi samme navn kan optræde som både Enhed og
+    Kontor (fx "KU Bygninger" er begge dele) med hver sin forkortelse.
+
+    "NA" (eller tom) i Forkortet navn betyder, at enheden/kontoret skal
+    UDELADES HELT fra data (ikke bare vise det fulde navn) - markeres her
+    med None, og load_real_units() dropper så den række. Navne der slet
+    ikke findes i filen, beholder deres fulde, oprindelige navn.
+
+    Findes filen slet ikke (endnu ikke committet til repoet), returneres
+    en tom mapping - appen virker stadig, bare uden forkortelser/udeladelser.
+    """
+    forkortelser = {}
+    try:
+        with open(filename, encoding=ENCODING, newline="") as f:
+            tekst = f.read().lstrip("\ufeff")  # fjern ALLE indledende BOM'er, ikke kun én
+        reader = csv.DictReader(io.StringIO(tekst), delimiter=";")
+        for row in reader:
+            type_ = (row.get("Type") or "").strip()
+            navn = (row.get("Navn") or "").strip()
+            kort = (row.get("Forkortet navn") or "").strip()
+            if not navn:
+                continue
+            forkortelser[(type_, navn)] = None if (not kort or kort.upper() == "NA") else kort
+    except FileNotFoundError:
+        pass
+    return forkortelser
+
 def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
     """
     Bygger den flade enheds-liste (samme form som den tidligere
@@ -95,6 +129,7 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
     """
     units = []
     enh_id_for_institut = {}
+    forkortelser = _load_forkortelser()
 
     csv_tekst = _load_csv_from_erda(filename)
     reader = csv.DictReader(io.StringIO(csv_tekst), delimiter=";")
@@ -102,14 +137,20 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
         institut = row["Institut"].strip()
         if institut == "Tilskud":
             continue
+        if forkortelser.get(("Enhed", institut)) is None and ("Enhed", institut) in forkortelser:
+            continue  # hele enheden er markeret NA - udelades fra data
+
         kontor = row["Kontor"].strip()
+        kontor_kort = forkortelser.get(("Kontor", kontor), kontor)
+        if kontor_kort is None:
+            continue  # dette kontor er markeret NA - udelades fra data
 
         if institut not in enh_id_for_institut:
             enh_id = institut
             ledelseslag = "Campusdirektør" if institut in CAMPUSDIREKTOER_ENHEDER else "Vicedirektør"
             units.append({
                 "id": enh_id,
-                "navn": institut,
+                "navn": forkortelser.get(("Enhed", institut), institut),
                 "niveau": "Enhed",
                 "parent_id": ROOT_ID,
                 "ledelseslag": ledelseslag,   
@@ -125,7 +166,7 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
 
         units.append({
             "id": kontor_id,
-            "navn": kontor,
+            "navn": kontor_kort,
             "niveau": "Kontor",
             "parent_id": enh_id,
             "ledelseslag": LEDELSESLAG_PER_NIVEAU["Kontor"],
@@ -136,3 +177,4 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
         })
 
     return units
+

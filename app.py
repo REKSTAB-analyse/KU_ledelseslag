@@ -95,9 +95,9 @@ def _split_by_omraade(by_id, children_of, enh_uid, omraade_valgt, metric):
     """
     Deler en enheds kontorer i to grupper - dem der hører til omraade_valgt,
     og resten - og returnerer (omraade_vaerdi, rest_vaerdi) for den valgte
-    metric. For "Gns. lønomkostning pr. årsværk" beregnes et separat
-    gennemsnit pr. gruppe (kan ikke stakkes, da et gennemsnit ikke er
-    additivt) - for de to andre metrics summeres der (additive, kan stakkes).
+    metric. For de to "pr. X"-metrics beregnes et separat gennemsnit pr.
+    gruppe (kan ikke stakkes, da et gennemsnit ikke er additivt) - for de
+    øvrige (rene sum-metrics) summeres der (additive, kan stakkes).
     """
     kontor_ids = children_of.get(enh_uid, [])
     om_ids = [k for k in kontor_ids if by_id[k]["omraade"] == omraade_valgt]
@@ -108,10 +108,18 @@ def _split_by_omraade(by_id, children_of, enh_uid, omraade_valgt, metric):
         rest_av = sum(by_id[k]["aarsvaerk"] for k in rest_ids)
         om_v = (sum(by_id[k]["lonomkostninger"] for k in om_ids) / om_av) if om_av else 0
         rest_v = (sum(by_id[k]["lonomkostninger"] for k in rest_ids) / rest_av) if rest_av else 0
+    elif metric == "Gns. lønomkostning pr. medarbejder":
+        om_med = sum(by_id[k]["medarbejdere"] for k in om_ids)
+        rest_med = sum(by_id[k]["medarbejdere"] for k in rest_ids)
+        om_v = (sum(by_id[k]["lonomkostninger"] for k in om_ids) / om_med) if om_med else 0
+        rest_v = (sum(by_id[k]["lonomkostninger"] for k in rest_ids) / rest_med) if rest_med else 0
     elif metric == "Samlede lønomkostninger":
         om_v = sum(by_id[k]["lonomkostninger"] for k in om_ids)
         rest_v = sum(by_id[k]["lonomkostninger"] for k in rest_ids)
-    else:
+    elif metric == "Antal medarbejdere":
+        om_v = sum(by_id[k]["medarbejdere"] for k in om_ids)
+        rest_v = sum(by_id[k]["medarbejdere"] for k in rest_ids)
+    else:  # "Antal årsværk"
         om_v = sum(by_id[k]["aarsvaerk"] for k in om_ids)
         rest_v = sum(by_id[k]["aarsvaerk"] for k in rest_ids)
     return om_v, rest_v
@@ -434,12 +442,12 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
 
     overblik_niveau = st.radio(
         "**Vælg, hvilket niveau figurene skal vise:**",
-        ["Niveau 3 (KE/CA)", "Niveau 4 (afdelinger)", "Begge niveauer"],
+        ["Niveau 3 (KE/CA)", "Niveau 4+5 (afdelinger)", "Overblik"],
         horizontal=True,
         key="overblik_niveau",
     )
-    vis_enhed = overblik_niveau in ("Niveau 3 (KE/CA)", "Begge niveauer")
-    vis_kontor = overblik_niveau in ("Niveau 4 (afdelinger)", "Begge niveauer")
+    vis_enhed = overblik_niveau in ("Niveau 3 (KE/CA)", "Overblik")
+    vis_kontor = overblik_niveau in ("Niveau 4+5 (afdelinger)", "Overblik")
 
     # Fælles x-akse-grænse på tværs af ALLE tre plots, så de er sammenlignelige.
     alle_vaerdier = []
@@ -480,6 +488,16 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
         elif metric == "Gns. lønomkostning pr. medarbejder":
             return f"{metric} (kr. pr. medarbejder)"
         return f"{metric} (kr.)"
+
+    def _format_tal(v):
+        """Tekst til visning i/ved en søjle - tomt for 0 (overskrifter, luft-rækker)."""
+        if not v:
+            return ""
+        if metric == "Antal årsværk":
+            return f"{v:,.1f}"
+        elif metric == "Antal medarbejdere":
+            return f"{v:,.0f}"
+        return f"{v:,.0f} kr."
 
     if overblik_niveau == "Niveau 3 (KE/CA)":
         # Ét samlet plot. Klik på en enheds-søjle folder dens kontorer ud lige
@@ -573,6 +591,8 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
             marker_color=om_kleur,
             marker_line_color="white",
             marker_line_width=1,
+            text=[_format_tal(v) for v in om_vaerdier],
+            textposition="auto",
             hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
         ))
         if vis_omraader:
@@ -584,6 +604,8 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
                 marker_color="#E6C9CC",
                 marker_line_color="white",
                 marker_line_width=1,
+                text=[_format_tal(v) for v in rest_vaerdier],
+                textposition="auto",
                 hovertemplate="<b>%{y}</b><br>Øvrige: " + value_fmt + "<extra></extra>",
             ))
         fig_niveau3.update_layout(
@@ -616,7 +638,7 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
         
         st.caption("Klik på en søjle ovenfor for at folde dens afdelinger ud.")
 
-    elif overblik_niveau == "Niveau 4 (afdelinger)":
+    elif overblik_niveau == "Niveau 4+5 (afdelinger)":
         # Samme klyngestruktur som Begge niveauer (CA/KE øverst i hver
         # gruppe), men uden en rigtig enheds-søjle - kun en tom
         # "overskrift"-søjle med enhedens navn som label, efterfulgt af
@@ -627,10 +649,10 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
             "Campusadministration Søndre",
         ]
         ca_ids = sorted(
-            (uid for uid in niveau1_ids if by_id[uid]["navn"] in CA_RAEKKEFOELGE),
-            key=lambda uid: CA_RAEKKEFOELGE.index(by_id[uid]["navn"]),
+            (uid for uid in niveau1_ids if uid in CA_RAEKKEFOELGE),
+            key=lambda uid: CA_RAEKKEFOELGE.index(uid),
         )
-        ovrige_ids = [uid for uid in niveau1_ids if by_id[uid]["navn"] not in CA_RAEKKEFOELGE]
+        ovrige_ids = [uid for uid in niveau1_ids if uid not in CA_RAEKKEFOELGE]
 
         chunk_n4 = -(-len(ovrige_ids) // 3)  # oprund
         ovrige_grupper_n4 = [ovrige_ids[i:i + chunk_n4] for i in range(0, len(ovrige_ids), chunk_n4)]
@@ -697,6 +719,8 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
                 marker_color=om_kleur,
                 marker_line_color="white",
                 marker_line_width=1,
+                text=[_format_tal(v) for v in vaerdier],
+                textposition="auto",
                 hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
             ))
 
@@ -716,7 +740,7 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
                 )
 
             fig_niveau4.update_layout(
-                title=f"{metric} for niveau 4" if g_idx == 0 else " ",
+                title=f"{metric} for niveau 4+5" if g_idx == 0 else " ",
                 margin=dict(t=60, l=20, r=10, b=10),
                 height=max(160, 20 * len(navne) + 60),
                 xaxis=dict(title=_akse_label(metric)),
@@ -735,10 +759,10 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
             "Campusadministration Søndre",
         ]
         ca_ids = sorted(
-            (uid for uid in niveau1_ids if by_id[uid]["navn"] in CA_RAEKKEFOELGE),
-            key=lambda uid: CA_RAEKKEFOELGE.index(by_id[uid]["navn"]),
+            (uid for uid in niveau1_ids if uid in CA_RAEKKEFOELGE),
+            key=lambda uid: CA_RAEKKEFOELGE.index(uid),
         )
-        ovrige_ids = [uid for uid in niveau1_ids if by_id[uid]["navn"] not in CA_RAEKKEFOELGE]
+        ovrige_ids = [uid for uid in niveau1_ids if uid not in CA_RAEKKEFOELGE]
 
         chunk = -(-len(ovrige_ids) // 3)  # oprund
         ovrige_grupper = [ovrige_ids[i:i + chunk] for i in range(0, len(ovrige_ids), chunk)]
@@ -808,6 +832,8 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
                 marker_color=om_kleur,
                 marker_line_color="white",
                 marker_line_width=1,
+                text=[_format_tal(v) for v in om_vaerdier],
+                textposition="auto",
                 hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
             ))
             if vis_omraader:
@@ -819,11 +845,13 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
                     marker_color="#E6C9CC",
                     marker_line_color="white",
                     marker_line_width=1,
+                    text=[_format_tal(v) for v in rest_vaerdier],
+                    textposition="auto",
                     hovertemplate="<b>%{y}</b><br>Øvrige: " + value_fmt + "<extra></extra>",
                 ))
             fig_overblik.update_layout(
                 barmode="stack",
-                title=f"{metric} for niveau 3 og 4" if g_idx == 0 else "",
+                title=f"{metric} for alle tre niveauer" if g_idx == 0 else "",
                 margin=dict(t=60, l=10, r=10, b=70 if g_idx == 1 else 10),
                 height=max(160, 20 * len(navne) + 60),
                 xaxis=dict(range=[0, x_maks], title=_akse_label(metric)),
