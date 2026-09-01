@@ -613,7 +613,7 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
             barmode="stack",
             title=f"{metric} for niveau 3",
             margin=dict(t=60, l=10, r=10, b=10),
-            height=max(420, 20 * len(navne)),
+            height=max(400, 30 * len(navne)),
             xaxis=dict(title=_akse_label(metric)),
             yaxis=dict(autorange="reversed"),
             bargap=0,
