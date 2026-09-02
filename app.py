@@ -481,9 +481,9 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
     def _akse_label(metric):
         """Metricnavnet + dets enhed, til brug som x-akse-titel."""
         if metric == "Antal årsværk":
-            return f"{metric} (årsværk)"
+            return f"{metric}"
         elif metric == "Antal medarbejdere":
-            return f"{metric} (medarbejdere)"
+            return f"{metric}"
         elif metric == "Gns. lønomkostning pr. årsværk":
             return f"{metric} (kr. pr. årsværk)"
         elif metric == "Gns. lønomkostning pr. medarbejder":
