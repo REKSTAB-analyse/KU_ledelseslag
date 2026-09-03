@@ -229,23 +229,57 @@ def main():
         page_icon=load_logo(),
         layout="wide",
     )
- 
-    col_logo, col_title = st.columns([1, 4])
+
+    #st.markdown(f"""
+        #<style>
+        #div[data-testid="stDownloadButton"] {{
+            #display: flex;
+            #justify-content: flex-end;
+            #margin-right: -11rem;
+            #margin-top: -3.4rem;
+        #}}
+        #div[data-testid="stDownloadButton"] button {{
+            #border: none;
+            #background-color: transparent;
+            #background-image: url("data:image/svg+xml;base64,{icon_base64()}");
+            #background-repeat: no-repeat;
+            #background-position: center;
+            #background-size: 32px 32px;
+            #box-shadow: none;
+            #width: 2.0rem;
+            #height: 0.0rem;
+            #padding: 0;
+            #color: transparent;
+        #}}
+        #div[data-testid="stDownloadButton"] button:hover {{
+            #background-color: rgba(0,0,0,0.06);
+            #border-radius: 0px;
+        #}}
+        #</style>
+        #""", unsafe_allow_html=True)
+
+    col_logo, col_title, col_download = st.columns([1, 4, 1])
+
     with col_logo:
         st.markdown(
             f'<img src="data:image/png;base64,{logo_base64()}" '
             f'style="max-width:180px; width:100%;">',
             unsafe_allow_html=True
         )
- 
+
     with col_title:
-        #st.title("Københavns Universitets ledelseslag")
         st.title("Personale- og lønomkostninger")
+
+    #with col_download:
+        #st.download_button(
+            #" ", load_documentation(), file_name="samlet_dokumentation.pdf",
+            #help="Download dokumentation"
+        #)
 
     st.markdown(
 """
-Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's administrative enheder (
-koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen nedenfor til at vælge, hvilke tal figurene skal vise. 
+Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's administrative enheder 
+(koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen nedenfor til at vælge, hvilke tal figurene skal vise. 
 """)
  
     # --- Data: indlæs og rul årsværk/lønomkostninger op gennem hierarkiet ---
@@ -668,6 +702,13 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
         ]
 
         kolonner_n4 = st.columns(3)
+        alle_kontor_vaerdier_n4 = [
+            metric_value(kid)
+            for uid in niveau1_ids
+            for kid in children_of.get(uid, [])
+        ]
+        x_maks_n4 = max(alle_kontor_vaerdier_n4) * 1.05 if alle_kontor_vaerdier_n4 else 1
+
         for g_idx, gruppe in enumerate(grupper_n4):
             navne, vaerdier, om_kleur, overskrift_navne = [], [], [], []
             brugte_navne_n4 = set()
@@ -744,7 +785,7 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
                 title=f"{metric} for niveau 4" if g_idx == 0 else " ",
                 margin=dict(t=60, l=20, r=10, b=10),
                 height=max(160, 20 * len(navne) + 60),
-                xaxis=dict(title=_akse_label(metric)),
+                xaxis=dict(range=[0, x_maks_n4], title=_akse_label(metric)),
                 yaxis=dict(autorange="reversed", tickmode="array", tickvals=tick_rækker, ticktext=tick_rækker),
                 bargap=0,
             )
