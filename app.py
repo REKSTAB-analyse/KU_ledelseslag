@@ -443,12 +443,12 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
 
     overblik_niveau = st.radio(
         "**Vælg, hvilket niveau figurene skal vise:**",
-        ["Niveau 3 (KE/CA)", "Niveau 4+5 (afdelinger)", "Overblik"],
+        ["Niveau 3 (KE/CA)", "Niveau 4 (afdelinger)", "Overblik"],
         horizontal=True,
         key="overblik_niveau",
     )
     vis_enhed = overblik_niveau in ("Niveau 3 (KE/CA)", "Overblik")
-    vis_kontor = overblik_niveau in ("Niveau 4+5 (afdelinger)", "Overblik")
+    vis_kontor = overblik_niveau in ("Niveau 4 (afdelinger)", "Overblik")
 
     # Fælles x-akse-grænse på tværs af ALLE tre plots, så de er sammenlignelige.
     alle_vaerdier = []
@@ -639,7 +639,7 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
         
         st.caption("Klik på en søjle ovenfor for at folde dens afdelinger ud.")
 
-    elif overblik_niveau == "Niveau 4+5 (afdelinger)":
+    elif overblik_niveau == "Niveau 4 (afdelinger)":
         # Samme klyngestruktur som Begge niveauer (CA/KE øverst i hver
         # gruppe), men uden en rigtig enheds-søjle - kun en tom
         # "overskrift"-søjle med enhedens navn som label, efterfulgt af
@@ -741,7 +741,7 @@ koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen neden
                 )
 
             fig_niveau4.update_layout(
-                title=f"{metric} for niveau 4+5" if g_idx == 0 else " ",
+                title=f"{metric} for niveau 4" if g_idx == 0 else " ",
                 margin=dict(t=60, l=20, r=10, b=10),
                 height=max(160, 20 * len(navne) + 60),
                 xaxis=dict(title=_akse_label(metric)),
