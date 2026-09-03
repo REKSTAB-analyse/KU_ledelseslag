@@ -27,7 +27,6 @@ CAMPUSDIREKTOER_ENHEDER = {
     "Campusadministration Søndre",
 }
 
-
 def administrativt_omraade(institut: str, kontor: str):
     """
     Samme logik som administrativt_omraade() i agg_data.py (som igen er en
