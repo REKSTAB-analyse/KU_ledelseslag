@@ -3,6 +3,7 @@ import os
 
 import streamlit as st
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from pptx import Presentation
 from pptx.util import Inches
 import matplotlib
@@ -10,9 +11,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
+
 from config import ROOT_ID, ROOT_NAVN, NIVEAUER, load_real_units
 from data.loader import load_logo, logo_base64
-
 
 PPTX_SKABELON = os.path.join(os.path.dirname(__file__), "ku_skabelon.pptx")
 PPTX_LAYOUT_NAVN = "1_Title and Content"
@@ -25,14 +26,14 @@ def build_lookup_and_rollup(units):
     """
     by_id: {id: enhed-dict}, inkl. en tilføjet rod-enhed (ROOT_ID).
     children_of: {parent_id: [child_id, ...]}
-    Aarsvaerk/lonomkostninger/medarbejdere rulles op, så ALLE enheder (ikke
-    kun leaf-enheder) har summerede tal.
+    Aarsvaerk/medarbejdere rulles op, så ALLE enheder (ikke kun
+    leaf-enheder) har summerede tal.
     """
     by_id = {u["id"]: dict(u) for u in units}
     by_id[ROOT_ID] = {
         "id": ROOT_ID, "navn": ROOT_NAVN, "niveau": "Rod",
         "parent_id": None, "ledelseslag": "Rektorat/direktion",
-        "aarsvaerk": None, "lonomkostninger": None, "medarbejdere": None,
+        "aarsvaerk": None, "medarbejdere": None,
     }
  
     children_of = {}
@@ -44,28 +45,18 @@ def build_lookup_and_rollup(units):
         u = by_id[unit_id]
         kids = children_of.get(unit_id, [])
         if not kids:
-            return u["aarsvaerk"] or 0.0, u["lonomkostninger"] or 0, u.get("medarbejdere") or 0
-        total_av, total_lon, total_med = 0.0, 0, 0
+            return u["aarsvaerk"] or 0.0, u.get("medarbejdere") or 0
+        total_av, total_med = 0.0, 0
         for k in kids:
-            av, lon, med = rollup(k)
+            av, med = rollup(k)
             total_av += av
-            total_lon += lon
             total_med += med
         u["aarsvaerk"] = round(total_av, 1)
-        u["lonomkostninger"] = total_lon
         u["medarbejdere"] = total_med
-        return total_av, total_lon, total_med
+        return total_av, total_med
  
     rollup(ROOT_ID)
     return by_id, children_of
- 
- 
-def gns_loen(by_id, unit_id):
-    u = by_id[unit_id]
-    if not u["aarsvaerk"]:
-        return 0
-    return u["lonomkostninger"] / u["aarsvaerk"]
- 
  
 def path_to_root(by_id, unit_id):
     """Brødkrumme fra roden ned til unit_id, som liste af id'er."""
@@ -96,28 +87,14 @@ def _split_by_omraade(by_id, children_of, enh_uid, omraade_valgt, metric):
     """
     Deler en enheds kontorer i to grupper - dem der hører til omraade_valgt,
     og resten - og returnerer (omraade_vaerdi, rest_vaerdi) for den valgte
-    metric. For de to "pr. X"-metrics beregnes et separat gennemsnit pr.
-    gruppe (kan ikke stakkes, da et gennemsnit ikke er additivt) - for de
-    øvrige (rene sum-metrics) summeres der (additive, kan stakkes).
+    metric. Begge nuværende metrics (Antal medarbejdere, Antal årsværk) er
+    additive, så de bare summeres pr. gruppe.
     """
     kontor_ids = children_of.get(enh_uid, [])
     om_ids = [k for k in kontor_ids if by_id[k]["omraade"] == omraade_valgt]
     rest_ids = [k for k in kontor_ids if by_id[k]["omraade"] != omraade_valgt]
 
-    if metric == "Gns. lønomkostning pr. årsværk":
-        om_av = sum(by_id[k]["aarsvaerk"] for k in om_ids)
-        rest_av = sum(by_id[k]["aarsvaerk"] for k in rest_ids)
-        om_v = (sum(by_id[k]["lonomkostninger"] for k in om_ids) / om_av) if om_av else 0
-        rest_v = (sum(by_id[k]["lonomkostninger"] for k in rest_ids) / rest_av) if rest_av else 0
-    elif metric == "Gns. lønomkostning pr. medarbejder":
-        om_med = sum(by_id[k]["medarbejdere"] for k in om_ids)
-        rest_med = sum(by_id[k]["medarbejdere"] for k in rest_ids)
-        om_v = (sum(by_id[k]["lonomkostninger"] for k in om_ids) / om_med) if om_med else 0
-        rest_v = (sum(by_id[k]["lonomkostninger"] for k in rest_ids) / rest_med) if rest_med else 0
-    elif metric == "Samlede lønomkostninger":
-        om_v = sum(by_id[k]["lonomkostninger"] for k in om_ids)
-        rest_v = sum(by_id[k]["lonomkostninger"] for k in rest_ids)
-    elif metric == "Antal medarbejdere":
+    if metric == "Antal medarbejdere":
         om_v = sum(by_id[k]["medarbejdere"] for k in om_ids)
         rest_v = sum(by_id[k]["medarbejdere"] for k in rest_ids)
     else:  # "Antal årsværk"
@@ -125,7 +102,7 @@ def _split_by_omraade(by_id, children_of, enh_uid, omraade_valgt, metric):
         rest_v = sum(by_id[k]["aarsvaerk"] for k in rest_ids)
     return om_v, rest_v
 
-def _bar_chart_png(navne, values, farve_hex, metric_label, vaerdi_er_kr, width_in, height_in):
+def _bar_chart_png(navne, values, farve_hex, metric_label, enhed_tekst, width_in, height_in):
     """Bygger et vandret søjlediagram med matplotlib - samme stil som appens
     egne Plotly-diagrammer (KU-farver, størst øverst) - og returnerer det
     som PNG-bytes i en BytesIO. Kræver ikke Chrome."""
@@ -141,11 +118,10 @@ def _bar_chart_png(navne, values, farve_hex, metric_label, vaerdi_er_kr, width_i
     ax.set_xlabel(metric_label, fontsize=9)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    if vaerdi_er_kr:
-        ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:,.0f}".replace(",", ".")))
 
+    decimaler = 1 if enhed_tekst == "årsværk" else 0
     for i, v in enumerate(values):
-        label = f"{v:,.0f} kr.".replace(",", ".") if vaerdi_er_kr else f"{v:.1f} årsværk"
+        label = f"{v:,.{decimaler}f} {enhed_tekst}".replace(",", ".")
         ax.text(v, i, " " + label, va="center", fontsize=8)
 
     fig.tight_layout()
@@ -169,8 +145,6 @@ def build_full_pptx(by_id, children_of, niveau1_ids, metric, metric_value):
     if layout is None:
         layout = prs.slide_layouts[min(1, len(prs.slide_layouts) - 1)]
 
-    vaerdi_er_kr = metric != "Antal årsværk"
-
     def set_title(slide, title):
         title_ph = next((p for p in slide.placeholders if p.placeholder_format.idx == 0), None)
         if title_ph is not None:
@@ -187,7 +161,7 @@ def build_full_pptx(by_id, children_of, niveau1_ids, metric, metric_value):
     set_title(slide, "Campusadministrationer og koncernenheder")
     def add_chart_image(slide, left, top, width, height, navne, values, farve_hex):
         png_buf = _bar_chart_png(
-            navne, values, farve_hex, metric, vaerdi_er_kr,
+            navne, values, farve_hex, metric,
             width_in=width.inches, height_in=height.inches,
         )
         slide.shapes.add_picture(png_buf, left, top, width=width, height=height)
@@ -268,7 +242,7 @@ def main():
         )
 
     with col_title:
-        st.title("Personale- og lønomkostninger")
+        st.title("Personaleoverblik")
 
     #with col_download:
         #st.download_button(
@@ -278,8 +252,25 @@ def main():
 
     st.markdown(
 """
-Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's administrative enheder 
-(koncernenheder og campusadministrationer) og deres afdelinger. Brug menuen nedenfor til at vælge, hvilke tal figurene skal vise. 
+Dette værktøj viser årsværk og medarbejdertal for KU's administrative enheder på Niveau 3 
+(koncernenheder og campusadministrationer) og deres afdelinger (Niveau 4). 
+
+**Sådan bruger du værktøjet:**
+- **Vælg tal:** Brug knapperne øverst til at vælge, hvilket tal figurerne skal vise - 
+antal medarbejdere eller antal årsværk. 
+- **Se ét bestemt administrativt område**: Slå 'Vis administrative områder' til 
+for at vælge et enkelt område (f.eks. HR, IT eller økonomi). Søjlerne viser derefter, 
+hvor stor en andel af hver enhed og afdeling der hører til det valgte område (mørk farve), 
+og hvor meget der er 'Øvrige' (lys farve).  
+- **Fuldt overblik**: Nedenfor kan du vælge, om figurene skal vise enhederne på Niveau 3
+eller et fuldt overblik med både Niveau 3 og 4. I Niveau 3-visningen kan du klikke
+på en enheds søjle for at folde dens afdelinger ud; klik igen for at folde sammen. 
+Du kan folde flere enheder ud samtidig. 
+- **Download som PowerPoint**: Til sidst kan du generere og downloade alle figurene 
+samlet i én PowerPoint-præsentation.  
+
+**Bemærk**: Niveau 4 er det mest detaljerede niveau, værktøjet viser. Eventuelle underliggende Niveau 5- og 6-sektioner
+indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt særskilt ud. 
 """)
  
     # --- Data: indlæs og rul årsværk/lønomkostninger op gennem hierarkiet ---
@@ -299,7 +290,12 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
     with st.expander("Hvad vil du gerne se i figurene?", expanded=True):
         metric = st.radio(
             "**Vælg, hvilke tal figurene skal vise:**",
-            ["Samlede lønomkostninger", "Antal medarbejdere", "Antal årsværk", "Gns. lønomkostning pr. årsværk", "Gns. lønomkostning pr. medarbejder"],
+            #["Samlede lønomkostninger", "Antal medarbejdere", "Antal årsværk", "Gns. lønomkostning pr. årsværk", "Gns. lønomkostning pr. medarbejder"],
+            ["Antal medarbejdere", "Antal årsværk"],
+            captions=[
+                "Antal ansættelsesforhold",
+                "Beregnet personaleforbrug",
+                ],
             horizontal=True,
             key="metric_valg",
         )
@@ -321,13 +317,7 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
  
     def metric_value(uid):
         u = by_id[uid]
-        if metric == "Gns. lønomkostning pr. årsværk":
-            return gns_loen(by_id, uid)
-        elif metric == "Gns. lønomkostning pr. medarbejder":
-            return (u["lonomkostninger"] / u["medarbejdere"]) if u.get("medarbejdere") else 0
-        elif metric == "Samlede lønomkostninger":
-            return u["lonomkostninger"]
-        elif metric == "Antal medarbejdere":
+        if metric == "Antal medarbejdere":
             return u["medarbejdere"]
         else:
             return u["aarsvaerk"]
@@ -347,14 +337,8 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
     value_fmt = "%{x:,.1f} årsværk" if metric == "Antal årsværk" else "%{x:,.0f} kr."
     if metric == "Antal årsværk":
         value_fmt = "%{x:,.1f} årsværk"
-    elif metric == "Antal medarbejdere":
-        value_fmt = "%{x:,.0f} medarbejdere"
-    elif metric == "Gns. lønomkostning pr. årsværk":
-        value_fmt = "%{x:,.0f} kr. pr. årsværk"
-    elif metric == "Gns. lønomkostning pr. medarbejder":
-        value_fmt = "%{x:,.0f} kr. pr. medarbejder"
     else:
-        value_fmt = "%{x:,.0f} kr."
+        value_fmt = "%{x:,.0f} medarbejdere"
 
 
         #if visning == "Afdelinger":
@@ -477,12 +461,16 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
 
     overblik_niveau = st.radio(
         "**Vælg, hvilket niveau figurene skal vise:**",
-        ["Niveau 3 (KE/CA)", "Niveau 4 (afdelinger)", "Overblik"],
+        #["Niveau 3 (KE/CA)", "Niveau 4 (afdelinger)", "Overblik"],
+        ["Niveau 3 (KE/CA)", "Niveau 3+4"],
+        #["Niveau 3 (KE/CA)", "Overblik"],
         horizontal=True,
         key="overblik_niveau",
     )
-    vis_enhed = overblik_niveau in ("Niveau 3 (KE/CA)", "Overblik")
-    vis_kontor = overblik_niveau in ("Niveau 4 (afdelinger)", "Overblik")
+    #vis_enhed = overblik_niveau in ("Niveau 3 (KE/CA)", "Overblik")
+    #vis_kontor = overblik_niveau in ("Niveau 4 (afdelinger)", "Overblik")
+    vis_enhed = True  # begge tilstande viser enhederne
+    vis_kontor = overblik_niveau == "Niveau 3+4"
 
     # Fælles x-akse-grænse på tværs af ALLE tre plots, så de er sammenlignelige.
     alle_vaerdier = []
@@ -513,16 +501,8 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
         return unikt
 
     def _akse_label(metric):
-        """Metricnavnet + dets enhed, til brug som x-akse-titel."""
-        if metric == "Antal årsværk":
-            return f"{metric}"
-        elif metric == "Antal medarbejdere":
-            return f"{metric}"
-        elif metric == "Gns. lønomkostning pr. årsværk":
-            return f"{metric} (kr. pr. årsværk)"
-        elif metric == "Gns. lønomkostning pr. medarbejder":
-            return f"{metric} (kr. pr. medarbejder)"
-        return f"{metric} (kr.)"
+        """Metricnavnet, til brug som x-akse-titel."""
+        return f"{metric}"
 
     def _format_tal(v):
         """Tekst til visning i/ved en søjle - tomt for 0 (overskrifter, luft-rækker)."""
@@ -530,9 +510,7 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
             return ""
         if metric == "Antal årsværk":
             return f"{v:,.1f}"
-        elif metric == "Antal medarbejdere":
-            return f"{v:,.0f}"
-        return f"{v:,.0f} kr."
+        return f"{v:,.0f}"
 
     if overblik_niveau == "Niveau 3 (KE/CA)":
         # Ét samlet plot. Klik på en enheds-søjle folder dens kontorer ud lige
@@ -645,7 +623,7 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
             ))
         fig_niveau3.update_layout(
             barmode="stack",
-            title=f"{metric} for niveau 3",
+            title=f"{metric} for Niveau 3",
             margin=dict(t=60, l=10, r=10, b=10),
             height=max(400, 30 * len(navne)),
             xaxis=dict(title=_akse_label(metric)),
@@ -818,7 +796,9 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
             for ca, ovrige in zip(ca_ids, ovrige_grupper)
         ]
 
-        kolonner = st.columns(3)
+        fig_overblik = make_subplots(rows=1, cols=3, horizontal_spacing=0.10)
+        hoejeste_raekkeantal = 0
+
         for g_idx, gruppe in enumerate(grupper):
             navne, om_vaerdier, rest_vaerdier, om_kleur = [], [], [], []
             brugte_navne = set()
@@ -865,46 +845,53 @@ Dette værktøj viser årsværk, medarbejderantal og lønomkostninger for KU's a
             if not navne:
                 continue
 
-            fig_overblik = go.Figure()
-            fig_overblik.add_trace(go.Bar(
-                x=om_vaerdier,
-                y=navne,
-                orientation="h",
-                name=omraade_valgt if vis_omraader else metric,
-                marker_color=om_kleur,
-                marker_line_color="white",
-                marker_line_width=1,
-                text=[_format_tal(v) for v in om_vaerdier],
-                textposition="auto",
-                hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
-            ))
-            if vis_omraader:
-                fig_overblik.add_trace(go.Bar(
-                    x=rest_vaerdier,
+            hoejeste_raekkeantal = max(hoejeste_raekkeantal, len(navne))
+            kol = g_idx + 1
+
+            fig_overblik.add_trace(
+                go.Bar(
+                    x=om_vaerdier,
                     y=navne,
                     orientation="h",
-                    name="Øvrige",
-                    marker_color="#E6C9CC",
+                    name=omraade_valgt if vis_omraader else metric,
+                    marker_color=om_kleur,
                     marker_line_color="white",
                     marker_line_width=1,
-                    text=[_format_tal(v) for v in rest_vaerdier],
+                    text=[_format_tal(v) for v in om_vaerdier],
                     textposition="auto",
-                    hovertemplate="<b>%{y}</b><br>Øvrige: " + value_fmt + "<extra></extra>",
-                ))
-            fig_overblik.update_layout(
-                barmode="stack",
-                title=f"{metric} for alle tre niveauer" if g_idx == 0 else "",
-                margin=dict(t=60, l=10, r=10, b=70 if g_idx == 1 else 10),
-                height=max(160, 20 * len(navne) + 60),
-                xaxis=dict(range=[0, x_maks], title=_akse_label(metric)),
-                yaxis=dict(autorange="reversed"),
-                bargap=0,
-                showlegend=(g_idx == 4),
-                legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+                    hovertemplate="<b>%{y}</b><br>" + value_fmt + "<extra></extra>",
+                    showlegend=False,
+                ),
+                row=1, col=kol,
             )
+            if vis_omraader:
+                fig_overblik.add_trace(
+                    go.Bar(
+                        x=rest_vaerdier,
+                        y=navne,
+                        orientation="h",
+                        name="Øvrige",
+                        marker_color="#E6C9CC",
+                        marker_line_color="white",
+                        marker_line_width=1,
+                        text=[_format_tal(v) for v in rest_vaerdier],
+                        textposition="auto",
+                        hovertemplate="<b>%{y}</b><br>Øvrige: " + value_fmt + "<extra></extra>",
+                        showlegend=False,
+                    ),
+                    row=1, col=kol,
+                )
+            fig_overblik.update_yaxes(autorange="reversed", row=1, col=kol)
 
-            with kolonner[g_idx]:
-                st.plotly_chart(fig_overblik, key=f"overblik_plot_{g_idx}", width="stretch")
+        fig_overblik.update_xaxes(range=[0, x_maks], title=_akse_label(metric))
+        fig_overblik.update_layout(
+            barmode="stack",
+            title=f"{metric} for begge niveauer",
+            margin=dict(t=60, l=10, r=10, b=70),
+            height=max(160, 20 * hoejeste_raekkeantal + 60),
+            bargap=0,
+        )
+        st.plotly_chart(fig_overblik, key="overblik_samlet", width="stretch")
     #st.divider()
 
     #st.subheader("Se én KE/CA i detaljer")

@@ -14,7 +14,7 @@ LEDELSESLAG_PER_NIVEAU = {
 ROOT_ID = "KU"
 ROOT_NAVN = "Københavns Universitet"
 
-INSTITUT_KONTOR_FIL = "institut_kontor.csv"
+INSTITUT_KONTOR_FIL = "institut_kontor_02.csv"
 FORKORTELSER_FIL = os.path.join(os.path.dirname(__file__), "navne_til_forkortelse.csv")
 ENCODING = "utf-8-sig"
 # Kun disse tre ledes af en campusdirektør - resten (koncernenheder,
@@ -154,7 +154,7 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
                 "parent_id": ROOT_ID,
                 "ledelseslag": ledelseslag,   
                 "aarsvaerk": None,
-                "lonomkostninger": None,
+                #"lonomkostninger": None,
                 "medarbejdere": None,
             })
             enh_id_for_institut[institut] = enh_id
@@ -171,7 +171,7 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
             "ledelseslag": LEDELSESLAG_PER_NIVEAU["Kontor"],
             "omraade": omraade,
             "aarsvaerk": float(row["antal_aarsvaerk"]),
-            "lonomkostninger": float(row["lonomkostninger"]),
+            #"lonomkostninger": float(row["lonomkostninger"]),
             "medarbejdere": float(row["antal_medarbejdere"]),
         })
 
