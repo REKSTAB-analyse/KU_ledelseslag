@@ -1,5 +1,5 @@
-﻿﻿Type;Navn;Forkortet navn
-Enhed;Campusadministration Frederiksberg+;CA FRB
+﻿Type;Navn;Forkortet navn
+Enhed;Campusadministration Frederiksberg+;CA FRBPLUS
 Enhed;Campusadministration Nørre;CA NØRRE
 Enhed;Campusadministration Søndre;CA SØNDRE
 Enhed;KU Bygninger;KU BYG
@@ -11,73 +11,71 @@ Enhed;KU Kommunikation;KU KOM
 Enhed;KU Uddannelse;KU UDD
 Enhed;KU Økonomi;KU ØKO
 Enhed;Rektoratets stab;KU REKSTAB
-Enhed;Tilskud;NA
-Kontor;Afdelingsledelse;NA
 Kontor;Analyse og Business Intelligence;ABI
-Kontor;Byggeri & Bygherre Programmer og Projekter;Byg.
-Kontor;Byggeri;Byg.
-Kontor;Bygninger CAF+;Byg.
-Kontor;Bygninger CAN;Byg.
-Kontor;Bygninger CAS;Byg.
-Kontor;Campusdirektør Frederiksberg+;NA
-Kontor;Campusdirektør Nørre;NA
-Kontor;Campusdirektør Søndre;NA
-Kontor;Digital Forretningsunderstøttelse. FM udvikling og standardisering. Strategi og Styring;S&S
-Kontor;Strategi og Styring;S&S
+Kontor;Byggeri;BYGGERI
+Kontor;Bygninger Frederiksberg+;BYG FRBPLUS
+Kontor;Bygninger Nørre;BYG NØRRE
+Kontor;Bygninger Søndre;BYG SØNDRE
+Kontor;Campusadministration Frederiksberg+;CA FRBPLUS
+Kontor;Campusadministration Nørre;CA NØRRE
+Kontor;Campusadministration Søndre;CA SØNDRE
 Kontor;Digital Transformation;DT
-Kontor;Digitale løsninger administration;DL-Adm
-Kontor;Digitale løsninger uddannelse;DL-Udd
-Kontor;Digitale løsninger. forskning. undervisning og produktion;DL-FUP
-Kontor;Digitalisering KU UDD. Digitalisering. Eksamen og Lokaleplanlægning. Eksamen and 1 more;Digi.
-Kontor;Eksterne Samarbejder og Ledelsesbetjening;ESL
-Kontor;Fora. Policy og Internationale Samarbejder;FPI
-Kontor;Forsknings og IP jura;F&IP-jura
-Kontor;Forskningscompliance;F-Compl
-Kontor;Forskningsfinansiering Frederiksberg+;Forsk.finans.
-Kontor;Forskningsfinansiering Nørre;Forsk.finans.
-Kontor;Forskningsfinansiering Søndre;Forsk.finans.
-Kontor;Forskningsservice og Udvikling;FSU
-Kontor;HR Administration;HR Adm.
-Kontor;HR Frederiksberg+;HR
-Kontor;HR Nørre;HR
-Kontor;HR Søndre;HR
-Kontor;HR Udvikling og Strategi;HR U&S
-Kontor;IT-support;IT-support
-Kontor;Infrastruktur og platforme;I&P
-Kontor;International Uddannelse;Int. Udd.
-Kontor;It-sikkerhed og support;ITS
-Kontor;Jura og Forkontor;J&F
-Kontor;KU Bygninger;NA
-Kontor;KU HR;NA
-Kontor;KU Innovation og Erhvervssamarbejde;NA
+Kontor;Digitale Løsninger Administration;DLA
+Kontor;Digitale Løsninger Uddannelse;DLU
+Kontor;Digitale Løsninger, Forskning, Undervisning og Produktion;DLF
+Kontor;Digitalisering, Eksamen og Lokaleplanlægning;DEL
+Kontor;Eksterne Samarbejder og Ledelsesbetjening;EP
+Kontor;Engagement;Eng.
+Kontor;Fora, Policy og Internationale Samarbejder;FPI
+Kontor;Forskning Nørre;FORSK NØRRE
+Kontor;Forsknings og IP jura;LEGAL
+Kontor;Forskningsfinansiering Frederiksberg+;FF FRBPLUS
+Kontor;Forskningsfinansiering Søndre;FF SØNDRE
+Kontor;Forskningsservice og Udvikling;FS
+Kontor;HR Administration;HR ADM
+Kontor;HR Frederiksberg+;HR FRBPLUS
+Kontor;HR Nørre;HR NØRRE
+Kontor;HR Søndre;HR SØNDRE
+Kontor;HR Udvikling og Strategi;HR US
+Kontor;IT-support;IT supp.
+Kontor;Infrastruktur og Platforme;IP
+Kontor;International Uddannelse;IU
+Kontor;It-sikkerhed og Support;ISS
+Kontor;Jura og Forkontor;JUFOR
+Kontor;KU Bygninger;KU BYG
+Kontor;KU Forskning og Informationssikkerhed;KU F&I
+Kontor;KU HR;KU HR
+Kontor;KU IT;KU IT
+Kontor;KU Innovation og Erhvervssamarbejde;KU I&E
 Kontor;KU Kommunikation;KU KOM
-Kontor;KU Lighthouse;KU LH
-Kontor;KU Uddannelse;NA
-Kontor;KU Økonomi;NA
-Kontor;Kommunikation;Kom.
-Kontor;Kommunikation Frederiksberg+;Kom.
-Kontor;Kommunikation Nørre;Kom.
-Kontor;Kommunikation Søndre;Kom.
-Kontor;Koncern Bygningsøkonomi;K.Byg.
-Kontor;Koncern Indkøb;K.Indk.
-Kontor;Koncern Regnskab;K.Regn.
-Kontor;Koncern Økonomi;K.Øko.
-Kontor;Ph.D Administration;Ph.D.-adm.
-Kontor;Plan;Plan
-Kontor;Rammer og styring;R&S
-Kontor;Rektorat;Rek.
-Kontor;Rektoratets stab;NA
-Kontor;Strategi. Udvikling og Styring;SUS
-Kontor;Studenterambassadøren;Stud.amb.
-Kontor;Studieliv og Studiestøtte;SLS
-Kontor;Tilskud - fordeling;NA
-Kontor;Uddannelse Frederiksberg+;Udd.
-Kontor;Uddannelse Nørre;Udd.
-Kontor;Uddannelse Søndre;Udd.
-Kontor;Uddannelsesstrategi & Analyse;U&A
-Kontor;Uddannelsesvalg og Optagelse;UVO
-Kontor;Universitetsavisen;NA
+Kontor;KU Lighthouse;LI
+Kontor;KU Uddannelse;KU UDD
+Kontor;KU Økonomi;KU ØKO
+Kontor;Kommunikation Frederiksberg+;KOMMIT FRBPLUS
+Kontor;Kommunikation Nørre;KOMMIT NØRRE
+Kontor;Kommunikation Søndre;KOMMIT SØNDRE
+Kontor;Koncern Bygningsøkonomi;KON BYGØKO
+Kontor;Koncern Indkøb;KON IND
+Kontor;Koncern Regnskab;KON REGN
+Kontor;Koncern Økonomi;KON ØKO
+Kontor;Markedsføring af Uddannelser;KOM MARK
+Kontor;Medier;KOM MEDIER
+Kontor;Organisatorisk Kommunikation;KOM ORG
+Kontor;Ph.d. administration;PhD ADM
+Kontor;Plan;PLAN
+Kontor;Presse;KOM PRESSE
+Kontor;Rammer og Styring;RS
+Kontor;Rektoratets stab;KU REKSTAB
+Kontor;Rådgivning og Medietræning;KOM RÅDGIV
+Kontor;Strategi, Udvikling og Styring;SUS
+Kontor;Studieliv og Studiestøtte;SoS
+Kontor;Uddannelse Frederiksberg+;UDD FRBPLUS
+Kontor;Uddannelse Nørre;UDD NØRRE
+Kontor;Uddannelse Søndre;UDD SØNDRE
+Kontor;Uddannelsesstrategi og Analyse;UA
+Kontor;Uddannelsesvalg og Optagelse;UO
 Kontor;Videreuddannelse og Livslang Læring;VLL
-Kontor;Økonomi Frederiksberg+;Øko.
-Kontor;Økonomi Nørre;Øko.
-Kontor;Økonomi Søndre;Øko.
+Kontor;Web og Visuel Identitet;KOM WEB
+Kontor;Økonomi Frederiksberg+;ØKO FRBPLUS
+Kontor;Økonomi Nørre;ØKO NØRRE
+Kontor;Økonomi Søndre;ØKO SØNDRE

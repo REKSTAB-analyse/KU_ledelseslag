@@ -270,7 +270,7 @@ Du kan folde flere enheder ud samtidig.
 samlet i én PowerPoint-præsentation.  
 
 **Bemærk**: Niveau 4 er det mest detaljerede niveau, værktøjet viser. Eventuelle underliggende Niveau 5- og 6-sektioner
-indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt særskilt ud. 
+indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt særskilt ned. 
 """)
  
     # --- Data: indlæs og rul årsværk/lønomkostninger op gennem hierarkiet ---
@@ -526,30 +526,6 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
         else:
             enheder_at_vise = [(uid, metric_value(uid), 0) for uid in niveau1_ids]
 
-        navne, om_vaerdier, rest_vaerdier, om_kleur, klik_uid = [], [], [], [], []
-        for uid, om_v, rest_v in enheder_at_vise:
-            navne.append(by_id[uid]["navn"])
-            om_vaerdier.append(om_v)
-            rest_vaerdier.append(rest_v)
-            om_kleur.append("#901A1E")
-            klik_uid.append(uid)
-
-            if uid in st.session_state.niveau3_udvidet:
-                if vis_omraader:
-                    kontor_ids = [
-                        kid for kid in children_of.get(uid, [])
-                        if by_id[kid]["omraade"] == omraade_valgt
-                    ]
-                else:
-                    kontor_ids = children_of.get(uid, [])
-                kontor_ids = sorted(kontor_ids, key=metric_value, reverse=True)
-                for kid in kontor_ids:
-                    navne.append(by_id[kid]["navn"])
-                    om_vaerdier.append(metric_value(kid))
-                    rest_vaerdier.append(0)
-                    om_kleur.append("#7992b5")
-                    klik_uid.append(None)
-
         brugte_navne_n3 = set()
         navne, om_vaerdier, rest_vaerdier, om_kleur, klik_uid = [], [], [], [], []
 
@@ -562,7 +538,10 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
 
             if uid in st.session_state.niveau3_udvidet:
                 if vis_omraader:
-                    alle_kontorer = children_of.get(uid, [])
+                    alle_kontorer = [
+                        kid for kid in children_of.get(uid, [])
+                        if not by_id[kid].get("er_selvnavngivet")
+                    ]
                     kontor_ids_match = sorted(
                         (kid for kid in alle_kontorer if by_id[kid]["omraade"] == omraade_valgt),
                         key=metric_value, reverse=True,
@@ -584,7 +563,10 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
                         om_kleur.append("#cad4e2")
                         klik_uid.append(None)
                 else:
-                    kontor_ids = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
+                    kontor_ids = sorted(
+                        (kid for kid in children_of.get(uid, []) if not by_id[kid].get("er_selvnavngivet")),
+                        key=metric_value, reverse=True,
+                    )
                     for kid in kontor_ids:
                         navne.append(by_id[kid]["navn"])
                         om_vaerdier.append(metric_value(kid))
@@ -693,7 +675,10 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
 
             for uid in gruppe:
                 if vis_omraader:
-                    alle_kontorer = children_of.get(uid, [])
+                    alle_kontorer = [
+                        kid for kid in children_of.get(uid, [])
+                        if not by_id[kid].get("er_selvnavngivet")
+                    ]
                     kontor_ids_match = sorted(
                         (kid for kid in alle_kontorer if by_id[kid]["omraade"] == omraade_valgt),
                         key=metric_value, reverse=True,
@@ -702,14 +687,21 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
                         (kid for kid in alle_kontorer if by_id[kid]["omraade"] != omraade_valgt),
                         key=metric_value, reverse=True,
                     )
-                    kontor_ids_samlet = kontor_ids_match + kontor_ids_oevrige
+                    kontor_ids = kontor_ids_match + kontor_ids_oevrige
                     farve_pr_kontor = ["#7992b5"] * len(kontor_ids_match) + ["#DCE3EC"] * len(kontor_ids_oevrige)
+                    if not kontor_ids:
+                        continue  # ingen kontorer overhovedet under denne enhed
+                    enhed_om, enhed_rest = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
                 else:
-                    kontor_ids_samlet = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
-                    farve_pr_kontor = ["#7992b5"] * len(kontor_ids_samlet)
+                    enhed_om, enhed_rest = metric_value(uid), 0
+                    kontor_ids = sorted(
+                        (kid for kid in children_of.get(uid, []) if not by_id[kid].get("er_selvnavngivet")),
+                        key=metric_value, reverse=True,
+                    )
+                    farve_pr_kontor = ["#7992b5"] * len(kontor_ids)
 
-                if not kontor_ids_samlet:
-                    continue  # ingen kontorer at vise for denne enhed
+                #if not kontor_ids_samlet:
+                    #continue  # ingen kontorer at vise for denne enhed
 
                 if navne:  # luft foer alle overskrifter undtagen den foerste i plottet
                     navne.append(_unikt_navn(" ", brugte_navne_n4))
@@ -773,28 +765,36 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
 
         # Del de 13 enheder i tre nogenlunde lige store, sammenhængende grupper -
         # én gruppe pr. kolonne/plot.
-        CA_RAEKKEFOELGE = [
-            "Campusadministration Frederiksberg+",
-            "Campusadministration Nørre",
-            "Campusadministration Søndre",
+        KOLONNE_GRUPPERING = [
+            [
+                "Campusadministration Frederiksberg+",
+                "KU Bygninger",
+                "KU IT",
+                "KU HR",
+            ],
+            [
+                "Campusadministration Nørre",
+                "KU Forskning og Informationssikkerhed", 
+                "KU Økonomi",
+                "KU Kommunikation",
+            ],
+            [
+                "Campusadministration Søndre",
+                "Rektoratets stab",
+                "KU Uddannelse",
+                "KU Innovation og Erhvervssamarbejde",
+            ],
         ]
-        ca_ids = sorted(
-            (uid for uid in niveau1_ids if uid in CA_RAEKKEFOELGE),
-            key=lambda uid: CA_RAEKKEFOELGE.index(uid),
-        )
-        ovrige_ids = [uid for uid in niveau1_ids if uid not in CA_RAEKKEFOELGE]
-
-        chunk = -(-len(ovrige_ids) // 3)  # oprund
-        ovrige_grupper = [ovrige_ids[i:i + chunk] for i in range(0, len(ovrige_ids), chunk)]
-        while len(ovrige_grupper) < 3:
-            ovrige_grupper.append([])
-        while len(ca_ids) < 3:
-            ca_ids.append(None)
-
         grupper = [
-            ([ca] if ca is not None else []) + ovrige
-            for ca, ovrige in zip(ca_ids, ovrige_grupper)
+            [uid for uid in gruppe_navne if uid in niveau1_ids]
+            for gruppe_navne in KOLONNE_GRUPPERING
         ]
+
+        # Læses her (før plottet bygges), men selve knappen vises FØRST
+        # nede under plottet - Streamlit husker værdien i session_state på
+        # tværs af genkørsler, så det virker alligevel.
+        kollaps_kontorer = st.session_state.get("kollaps_niveau4", False)
+        vis_kontor_her = vis_kontor and not kollaps_kontorer
 
         fig_overblik = make_subplots(rows=1, cols=3, horizontal_spacing=0.10)
         hoejeste_raekkeantal = 0
@@ -805,7 +805,10 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
 
             for uid in gruppe:
                 if vis_omraader:
-                    alle_kontorer = children_of.get(uid, [])
+                    alle_kontorer = [
+                        kid for kid in children_of.get(uid, [])
+                        if not by_id[kid].get("er_selvnavngivet")
+                    ]
                     kontor_ids_match = sorted(
                         (kid for kid in alle_kontorer if by_id[kid]["omraade"] == omraade_valgt),
                         key=metric_value, reverse=True,
@@ -821,11 +824,14 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
                     enhed_om, enhed_rest = _split_by_omraade(by_id, children_of, uid, omraade_valgt, metric)
                 else:
                     enhed_om, enhed_rest = metric_value(uid), 0
-                    kontor_ids = sorted(children_of.get(uid, []), key=metric_value, reverse=True)
+                    kontor_ids = sorted(
+                        (kid for kid in children_of.get(uid, []) if not by_id[kid].get("er_selvnavngivet")),
+                        key=metric_value, reverse=True,
+                    )
                     farve_pr_kontor = ["#7992b5"] * len(kontor_ids)
 
                 if vis_enhed:
-                    if navne and vis_kontor:
+                    if navne and vis_kontor_her:
                         navne.append(_unikt_navn(" ", brugte_navne))
                         om_vaerdier.append(0)
                         rest_vaerdier.append(0)
@@ -835,7 +841,7 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
                     rest_vaerdier.append(enhed_rest)
                     om_kleur.append("#901A1E")
 
-                if vis_kontor:
+                if vis_kontor_her:
                     for kid, farve in zip(kontor_ids, farve_pr_kontor):
                         navne.append(_unikt_navn(by_id[kid]["navn"], brugte_navne))
                         om_vaerdier.append(metric_value(kid))
@@ -891,7 +897,11 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
             height=max(160, 20 * hoejeste_raekkeantal + 60),
             bargap=0,
         )
-        st.plotly_chart(fig_overblik, key="overblik_samlet", width="stretch")
+        #st.plotly_chart(fig_overblik, key="overblik_samlet", width="stretch")
+        #st.checkbox(
+            #"Kollaps alle - vis kun enheds-totaler (Niveau 3)",
+            #key="kollaps_niveau4",
+        #)
     #st.divider()
 
     #st.subheader("Se én KE/CA i detaljer")

@@ -173,6 +173,7 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
             "aarsvaerk": float(row["antal_aarsvaerk"]),
             #"lonomkostninger": float(row["lonomkostninger"]),
             "medarbejdere": float(row["antal_medarbejdere"]),
+            "er_selvnavngivet": kontor == institut,
         })
 
     return units
