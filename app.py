@@ -18,8 +18,8 @@ from data.loader import load_logo, logo_base64
 PPTX_SKABELON = os.path.join(os.path.dirname(__file__), "ku_skabelon.pptx")
 PPTX_LAYOUT_NAVN = "1_Title and Content"
 
-@st.cache_data
-def load_units(show_spinner="Henter data..."):
+@st.cache_data(show_spinner="Henter data...")
+def load_units():
     return load_real_units()
 
 def build_lookup_and_rollup(units):
