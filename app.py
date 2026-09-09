@@ -292,10 +292,10 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
             "**Vælg, hvilke tal figurene skal vise:**",
             #["Samlede lønomkostninger", "Antal medarbejdere", "Antal årsværk", "Gns. lønomkostning pr. årsværk", "Gns. lønomkostning pr. medarbejder"],
             ["Antal medarbejdere", "Antal årsværk"],
-            captions=[
-                "Antal ansættelsesforhold",
-                "Beregnet personaleforbrug",
-                ],
+            #captions=[
+                #"Antal ansættelsesforhold",
+                #"Beregnet personaleforbrug",
+                #],
             horizontal=True,
             key="metric_valg",
         )
