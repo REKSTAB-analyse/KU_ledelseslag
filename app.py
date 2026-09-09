@@ -790,12 +790,6 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
             for gruppe_navne in KOLONNE_GRUPPERING
         ]
 
-        # Læses her (før plottet bygges), men selve knappen vises FØRST
-        # nede under plottet - Streamlit husker værdien i session_state på
-        # tværs af genkørsler, så det virker alligevel.
-        kollaps_kontorer = st.session_state.get("kollaps_niveau4", False)
-        vis_kontor_her = vis_kontor and not kollaps_kontorer
-
         fig_overblik = make_subplots(rows=1, cols=3, horizontal_spacing=0.10)
         hoejeste_raekkeantal = 0
 
@@ -831,7 +825,7 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
                     farve_pr_kontor = ["#7992b5"] * len(kontor_ids)
 
                 if vis_enhed:
-                    if navne and vis_kontor_her:
+                    if navne and vis_kontor:
                         navne.append(_unikt_navn(" ", brugte_navne))
                         om_vaerdier.append(0)
                         rest_vaerdier.append(0)
@@ -841,7 +835,7 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
                     rest_vaerdier.append(enhed_rest)
                     om_kleur.append("#901A1E")
 
-                if vis_kontor_her:
+                if vis_kontor:
                     for kid, farve in zip(kontor_ids, farve_pr_kontor):
                         navne.append(_unikt_navn(by_id[kid]["navn"], brugte_navne))
                         om_vaerdier.append(metric_value(kid))
@@ -897,11 +891,7 @@ indgår i tallene for den Niveau 4-afdeling, de hører under, men er ikke brudt 
             height=max(160, 20 * hoejeste_raekkeantal + 60),
             bargap=0,
         )
-        #st.plotly_chart(fig_overblik, key="overblik_samlet", width="stretch")
-        #st.checkbox(
-            #"Kollaps alle - vis kun enheds-totaler (Niveau 3)",
-            #key="kollaps_niveau4",
-        #)
+        st.plotly_chart(fig_overblik, key="overblik_samlet", width="stretch")
     #st.divider()
 
     #st.subheader("Se én KE/CA i detaljer")
