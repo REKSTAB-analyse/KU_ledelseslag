@@ -14,7 +14,7 @@ LEDELSESLAG_PER_NIVEAU = {
 ROOT_ID = "KU"
 ROOT_NAVN = "Københavns Universitet"
 
-INSTITUT_KONTOR_FIL = "institut_kontor_02.csv"
+INSTITUT_KONTOR_FIL = "institut_kontor.csv"
 FORKORTELSER_FIL = os.path.join(os.path.dirname(__file__), "navne_til_forkortelse.csv")
 ENCODING = "utf-8-sig"
 # Kun disse tre ledes af en campusdirektør - resten (koncernenheder,
@@ -27,41 +27,12 @@ CAMPUSDIREKTOER_ENHEDER = {
     "Campusadministration Søndre",
 }
 
-def administrativt_omraade(institut: str, kontor: str):
-    """
-    Samme logik som administrativt_omraade() i agg_data.py (som igen er en
-    Python-oversættelse af det oprindelige R case_when) - holdes i sync
-    manuelt, da scripts og app kører hver for sig. Dækker bevidst kun disse
-    fem områder; alt andet får None (og udelades som valgmulighed i appen).
-    """
-    kontor = kontor or ""
-
-    if institut == "KU HR":
-        return "HR"
-    if institut in CAMPUSDIREKTOER_ENHEDER and kontor.startswith("HR "):
-        return "HR"
-
-    if institut == "KU Bygninger":
-        return "Bygninger"
-    if institut in CAMPUSDIREKTOER_ENHEDER and kontor.startswith("Bygninger "):
-        return "Bygninger"
-
-    if institut == "KU Uddannelse":
-        return "Uddannelse"
-    if institut in CAMPUSDIREKTOER_ENHEDER and kontor.startswith("Uddannelse "):
-        return "Uddannelse"
-
-    if institut == "KU Økonomi":
-        return "Økonomi"
-    if institut in CAMPUSDIREKTOER_ENHEDER and kontor.startswith("Økonomi "):
-        return "Økonomi"
-
-    if institut == "KU IT":
-        return "IT"
-    if institut in CAMPUSDIREKTOER_ENHEDER and kontor == "IT-support":
-        return "IT"
-
-    return None
+ADM_OMRAADER = [
+    #"Økonomi", "Udd.adm.", "Kommunikation", "IT", 
+    "Økonomi", "Uddannelsesadministration", "Kommunikation", "IT", 
+    "Innovationsadministration", "HR", "Forskningsadministration",
+    "Bygningsservice", "Stabe",
+]
 
 @st.cache_resource
 def _get_sftp_client():
@@ -82,36 +53,70 @@ def _load_csv_from_erda(filename: str) -> str:
 
 def _load_forkortelser(filename: str = FORKORTELSER_FIL):
     """
-    Indlæser (Type, Navn) -> Forkortet navn fra navne_til_forkortelse.csv,
-    som ligger lokalt i GitHub-repoet (samme mappe som denne fil) - IKKE
-    på ERDA, da den ikke indeholder følsomme data, kun navne/forkortelser.
+    Indlæser (Type, Navn) -> {"forkortet": ..., "omraade": ...} fra
+    navne_til_forkortelse.csv, som ligger lokalt i GitHub-repoet (samme
+    mappe som denne fil) - IKKE på ERDA, da den ikke indeholder følsomme
+    data, kun navne/forkortelser/områder.
 
     Nøglen inkluderer Type, fordi samme navn kan optræde som både Enhed og
     Kontor (fx "KU Bygninger" er begge dele) med hver sin forkortelse.
 
-    "NA" (eller tom) i Forkortet navn betyder, at enheden/kontoret skal
-    UDELADES HELT fra data (ikke bare vise det fulde navn) - markeres her
-    med None, og load_real_units() dropper så den række. Navne der slet
-    ikke findes i filen, beholder deres fulde, oprindelige navn.
+    "NA" (eller tom) i "Forkortet navn" betyder, at enheden/kontoret skal
+    UDELADES HELT fra data - markeres her med forkortet=None, og
+    load_real_units() dropper så den række.
+
+    "NA" (eller tom) i "Adm. område" betyder, at enheden/kontoret ikke har
+    noget administrativt område - markeres her med omraade=None, men
+    UDELUKKER IKKE rækken fra data (i modsætning til "Forkortet navn").
+
+    Navne der slet ikke findes i filen, beholder deres fulde, oprindelige
+    navn og får omraade=None.
 
     Findes filen slet ikke (endnu ikke committet til repoet), returneres
-    en tom mapping - appen virker stadig, bare uden forkortelser/udeladelser.
+    en tom mapping - appen virker stadig, bare uden forkortelser/områder.
     """
     forkortelser = {}
     try:
         with open(filename, encoding=ENCODING, newline="") as f:
-            tekst = f.read().lstrip("\ufeff")  # fjern ALLE indledende BOM'er, ikke kun én
+            tekst = f.read().lstrip("\ufeff")
         reader = csv.DictReader(io.StringIO(tekst), delimiter=";")
         for row in reader:
             type_ = (row.get("Type") or "").strip()
             navn = (row.get("Navn") or "").strip()
             kort = (row.get("Forkortet navn") or "").strip()
+            omraade = (row.get("Adm. område") or "").strip()
             if not navn:
                 continue
-            forkortelser[(type_, navn)] = None if (not kort or kort.upper() == "NA") else kort
+            forkortelser[(type_, navn)] = {
+                "forkortet": None if (not kort or kort.upper() == "NA") else kort,
+                "omraade": None if (not omraade or omraade.upper() == "NA") else omraade,
+            }
     except FileNotFoundError:
         pass
     return forkortelser
+
+def load_forkortelser_raw(filename: str = FORKORTELSER_FIL):
+    """
+    Læser navne_til_forkortelse.csv råt, som en liste af rækker - til
+    visning i appens forklaring på, hvordan administrative områder er
+    inddelt. IKKE til selve institut/kontor-opslaget (det er
+    _load_forkortelser()'s job) - her vises filens indhold, som den er,
+    inkl. evt. "NA"-tekst.
+    """
+    raekker = []
+    try:
+        with open(filename, encoding=ENCODING, newline="") as f:
+            tekst = f.read().lstrip("\ufeff")
+        reader = csv.DictReader(io.StringIO(tekst), delimiter=";")
+        for row in reader:
+            raekker.append({
+                "Navn": (row.get("Navn") or "").strip(),
+                "Forkortet navn": (row.get("Forkortet navn") or "").strip(),
+                "Administrativt område": (row.get("Adm. område") or "").strip(),
+            })
+    except FileNotFoundError:
+        pass
+    return raekker
 
 def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
     """
@@ -136,42 +141,45 @@ def load_real_units(filename: str = INSTITUT_KONTOR_FIL):
         institut = row["Institut"].strip()
         if institut == "Tilskud":
             continue
-        if forkortelser.get(("Enhed", institut)) is None and ("Enhed", institut) in forkortelser:
+        enhed_info = forkortelser.get(("Enhed", institut))
+        if enhed_info is not None and enhed_info["forkortet"] is None:
             continue  # hele enheden er markeret NA - udelades fra data
 
         kontor = row["Kontor"].strip()
-        kontor_kort = forkortelser.get(("Kontor", kontor), kontor)
-        if kontor_kort is None:
+        kontor_info = forkortelser.get(("Kontor", kontor))
+        if kontor_info is not None and kontor_info["forkortet"] is None:
             continue  # dette kontor er markeret NA - udelades fra data
+        kontor_kort = kontor_info["forkortet"] if kontor_info is not None else kontor
+        omraade = kontor_info["omraade"] if kontor_info is not None else None
 
         if institut not in enh_id_for_institut:
             enh_id = institut
             ledelseslag = "Campusdirektør" if institut in CAMPUSDIREKTOER_ENHEDER else "Vicedirektør"
+            enhed_navn = enhed_info["forkortet"] if enhed_info is not None else institut
             units.append({
                 "id": enh_id,
-                "navn": forkortelser.get(("Enhed", institut), institut),
+                "navn": enhed_navn,
+                "fuldt_navn": institut,
                 "niveau": "Enhed",
                 "parent_id": ROOT_ID,
                 "ledelseslag": ledelseslag,   
                 "aarsvaerk": None,
-                #"lonomkostninger": None,
                 "medarbejdere": None,
             })
             enh_id_for_institut[institut] = enh_id
 
         enh_id = enh_id_for_institut[institut]
         kontor_id = f"{enh_id}::{kontor}"
-        omraade = administrativt_omraade(institut, kontor)
 
         units.append({
             "id": kontor_id,
             "navn": kontor_kort,
+            "fuldt_navn": kontor,
             "niveau": "Kontor",
             "parent_id": enh_id,
             "ledelseslag": LEDELSESLAG_PER_NIVEAU["Kontor"],
             "omraade": omraade,
             "aarsvaerk": float(row["antal_aarsvaerk"]),
-            #"lonomkostninger": float(row["lonomkostninger"]),
             "medarbejdere": float(row["antal_medarbejdere"]),
             "er_selvnavngivet": kontor == institut,
         })
