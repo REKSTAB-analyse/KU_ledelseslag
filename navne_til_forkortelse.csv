@@ -1,7 +1,7 @@
 ﻿Type;Navn;Forkortet navn;Adm. område
-Enhed;Campusadministration Frederiksberg+;CA FRBPLUS;NA
-Enhed;Campusadministration Nørre;CA NØRRE;NA
-Enhed;Campusadministration Søndre;CA SØNDRE;NA
+Enhed;Campusadministration Frederiksberg+;CA FRBPLUS;Ikke i adm. område
+Enhed;Campusadministration Nørre;CA NØRRE;Ikke i adm. område
+Enhed;Campusadministration Søndre;CA SØNDRE;Ikke i adm. område
 Enhed;KU Bygninger;KU BYG;Bygningsservice
 Enhed;KU Forskning og Informationssikkerhed;KU F&I;Forskningsadministration
 Enhed;KU HR;KU HR;HR
@@ -16,9 +16,9 @@ Kontor;Byggeri;BYGGERI;Bygningsservice
 Kontor;Bygninger Frederiksberg+;BYG FRBPLUS;Bygningsservice
 Kontor;Bygninger Nørre;BYG NØRRE;Bygningsservice
 Kontor;Bygninger Søndre;BYG SØNDRE;Bygningsservice
-Kontor;Campusadministration Frederiksberg+;CA FRBPLUS;NA
-Kontor;Campusadministration Nørre;CA NØRRE;NA
-Kontor;Campusadministration Søndre;CA SØNDRE;NA
+Kontor;Campusadministration Frederiksberg+;CA FRBPLUS;Ikke i adm. område
+Kontor;Campusadministration Nørre;CA NØRRE;Ikke i adm. område
+Kontor;Campusadministration Søndre;CA SØNDRE;Ikke i adm. område
 Kontor;Digital Transformation;DT;IT
 Kontor;Digitale Løsninger Administration;DLA;IT
 Kontor;Digitale Løsninger Uddannelse;DLU;IT

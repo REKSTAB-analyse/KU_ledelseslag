@@ -605,7 +605,7 @@ områder" i stedet viser de administrative områder (f.eks. HR eller IT) på tv�
 af de organisatoriske enheder.
 - **Fuldt overblik**: I hver fane kan du vælge, om figurene skal vise Niveau 3 alene eller et fuldt overblik med
 både Niveau 3 og 4. I Niveau 3-visningen kan du klikke på en søjle for at folde dens underliggende enheder ud; klik
-igen for at folde sammen. Du kan foldef lere søjler ud samtidig. 
+igen for at folde sammen. Du kan folde flere søjler ud samtidig. 
 
 **Bemærk**: Niveau 4 er det mest detaljerede niveau, værktøjet viser. Eventuelle 
 underliggende Niveau 5- og 6-sektioner indgår i tallene for den Niveau 4-afdeling, 
