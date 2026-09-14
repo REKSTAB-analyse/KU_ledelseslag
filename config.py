@@ -27,6 +27,8 @@ CAMPUSDIREKTOER_ENHEDER = {
     "Campusadministration Søndre",
 }
 
+test = 1
+
 ADM_OMRAADER = [
     #"Økonomi", "Udd.adm.", "Kommunikation", "IT", 
     "Økonomi", "Uddannelsesadministration", "Kommunikation", "IT", 
