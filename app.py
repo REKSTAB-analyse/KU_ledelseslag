@@ -636,15 +636,14 @@ de hører under, men er ikke brudt særskilt ned.
     with st.expander("Datagrundlag"):
         st.markdown(
 """
-Årsværk er opgjort som 'beregnet personaleforbrug' fra Personalesammensætning på Tableauserveren, som er den metrik, der
-bruges til optælling. 
+Optællingsmetrikken årsværk er opgjort som 'beregnet personaleforbrug' fra Personalesammensætning på Tableauserveren. 
 
 KUorg anvendes til at placere de enkelte ansatte på Niveau 4-afdelinger. Mellem de to datakilder er der 
 uoverensstemmelse for to personer, hvor data fra Personalesammensætning ikke stemmer overens med den 
 organisatoriske placering, KUorg angiver for personen. Begge tilfælde er blevet ekskluderet. 
 
 Derudover har to personer årsværk fordelt på flere KE/CA (Niveau 3) i Personalesammensætning - deres årsværk er fordelt
-ud på de institutter, de reelt er tilknyttet. 
+ud på de KE/CA og afdelinger, de reelt er tilknyttet. 
 """ 
     )
 
