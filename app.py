@@ -660,7 +660,7 @@ ud på de KE/CA og afdelinger, de reelt er tilknyttet.
 <hr style="margin-top: 50px;">
 <div style="text-align:center; color:#666; font-size: 0.9em;">
   REKSTAB Analyse · Amanda Schramm Petersen · <a href="mailto:ascp@adm.ku.dk">ascp@adm.ku.dk</a>
-  · opdateret 14. september 2026
+  · opdateret 17. september 2026
 </div>
 """, unsafe_allow_html=True)
 
