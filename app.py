@@ -213,7 +213,7 @@ def render_overblik(by_id, children_of, niveau1_ids, metric, key_prefix):
             marker_line_color="white",
             marker_line_width=1,
             text=[_format_tal(v) for v in vaerdier],
-            textposition="auto",
+            textposition="outside",
             customdata=fuldnavne,
             hovertemplate="<b>%{customdata}</b><br>" + value_fmt + "<extra></extra>",
         ))
@@ -316,7 +316,7 @@ def render_overblik(by_id, children_of, niveau1_ids, metric, key_prefix):
                     marker_line_color="white",
                     marker_line_width=1,
                     text=[_format_tal(v) for v in vaerdier],
-                    textposition="auto",
+                    textposition="outside",
                     customdata=fuldnavne,
                     hovertemplate="<b>%{customdata}</b><br>" + value_fmt + "<extra></extra>",
                     showlegend=False,
@@ -451,7 +451,7 @@ def render_omraader(by_id, metric, key_prefix):
             marker_line_color="white",
             marker_line_width=1,
             text=[_format_tal(v) for v in vaerdier],
-            textposition="auto",
+            textposition="outside",
             customdata=fuldnavne,
             hovertemplate="<b>%{customdata}</b><br>" + value_fmt + "<extra></extra>",
         ))
@@ -554,7 +554,7 @@ def render_omraader(by_id, metric, key_prefix):
                     marker_line_color="white",
                     marker_line_width=1,
                     text=[_format_tal(v) for v in vaerdier],
-                    textposition="auto",
+                    textposition="outside",
                     customdata=fuldnavne,
                     hovertemplate="<b>%{customdata}</b><br>" + value_fmt + "<extra></extra>",
                     showlegend=False,
@@ -563,7 +563,7 @@ def render_omraader(by_id, metric, key_prefix):
             )
             fig.update_yaxes(autorange="reversed", row=1, col=kol)
 
-        x_maks = hoejeste_vaerdi * 1.05 if hoejeste_vaerdi else 1
+        x_maks = hoejeste_vaerdi * 1.15 if hoejeste_vaerdi else 1
         fig.update_xaxes(range=[0, x_maks], title=_akse_label(metric))
         fig.update_layout(
             title=f"{metric} for alle administrative områder",
@@ -591,7 +591,8 @@ def main():
         )
 
     with col_title:
-        st.title("Personaleoverblik (beta)")
+        st.title("Personaleoverblik")
+        st.markdown("#### Materiale til A-DIR-seminar, 21. oktober 2026")
 
     st.markdown(
 """
@@ -636,7 +637,8 @@ de hører under, men er ikke brudt særskilt ned.
     with st.expander("Datagrundlag"):
         st.markdown(
 """
-Optællingsmetrikken årsværk er opgjort som 'beregnet personaleforbrug' fra Personalesammensætning på Tableauserveren. 
+Optællingsmetrikken årsværk er opgjort som 'beregnet personaleforbrug' for august måned 2026 fra 
+Personalesammensætning på Tableauserveren. 
 
 KUorg anvendes til at placere de enkelte ansatte på Niveau 4-afdelinger. Mellem de to datakilder er der 
 uoverensstemmelse for to personer, hvor data fra Personalesammensætning ikke stemmer overens med den 
