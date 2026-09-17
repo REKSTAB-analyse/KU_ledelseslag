@@ -563,7 +563,7 @@ def render_omraader(by_id, metric, key_prefix):
             )
             fig.update_yaxes(autorange="reversed", row=1, col=kol)
 
-        x_maks = hoejeste_vaerdi * 1.15 if hoejeste_vaerdi else 1
+        x_maks = hoejeste_vaerdi * 1.20 if hoejeste_vaerdi else 1
         fig.update_xaxes(range=[0, x_maks], title=_akse_label(metric))
         fig.update_layout(
             title=f"{metric} for alle administrative områder",
