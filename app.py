@@ -174,7 +174,7 @@ def render_overblik(by_id, children_of, niveau1_ids, metric, key_prefix):
         for uid in niveau1_ids:
             for kid in children_of.get(uid, []):
                 alle_vaerdier.append(metric_value(kid))
-    x_maks = max(alle_vaerdier) * 1.05 if alle_vaerdier else 1
+    x_maks = max(alle_vaerdier) * 1.15 if alle_vaerdier else 1
 
     if overblik_niveau == "Niveau 3 (KE/CA)":
         udvidet_key = f"{key_prefix}_niveau3_udvidet"
