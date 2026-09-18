@@ -517,6 +517,7 @@ def render_omraader(by_id, metric, key_prefix):
                     farver.append("rgba(0,0,0,0)")
                     fuldnavne.append("")
 
+
                 navne.append(_unikt_navn(f"<b>{omraade}</b>", brugte_navne))
                 vaerdier.append(omraade_total(omraade))
                 farver.append("#901A1E")
@@ -642,7 +643,7 @@ Optællingsmetrikken årsværk er opgjort som **HR's 'beregnede personaleforbrug
 Personalesammensætning på Tableauserveren. En oversigt over det beregnede personaleforbrug for KE/CA kan ses i 
 [denne Tableau-rapport](https://tableau.ku.dk/#/site/KU_BI/views/Personaleudvikling/StillingsfordelingtabelFakultet?:display_count=n&:iid=3&:origin=viz_share_link&:showAppBanner=false&:showVizHome=n).
 
-HR's årsværkopgørelse fokuserer på medarbejdere, der er til rådighed for ledelsen (dvs. ikke ud fra et lønomkostningsperspektiv).
+HR's årsværkopgørelse fokuserer på medarbejdere, der er til rådighed for ledelsen, dvs. ikke ud fra et lønomkostningsperspektiv.
 
 KUorg anvendes til at placere de enkelte ansatte på Niveau 4-afdelinger. Mellem de to datakilder er der 
 uoverensstemmelse for to personer, hvor data fra Personalesammensætning (én i KU ØKO, én i KU UDD) ikke stemmer overens med den 
