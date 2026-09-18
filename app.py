@@ -577,7 +577,7 @@ def render_omraader(by_id, metric, key_prefix):
 
 def main():
     st.set_page_config(
-        page_title="KU ledelseslag",
+        page_title="KU personaleoverblik",
         page_icon=load_logo(),
         layout="wide",
     )
