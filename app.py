@@ -637,11 +637,12 @@ de hører under, men er ikke brudt særskilt ned.
     with st.expander("Datagrundlag"):
         st.markdown(
 """
-Optællingsmetrikken årsværk er opgjort som 'beregnet personaleforbrug' for august måned 2026 fra 
-Personalesammensætning på Tableauserveren. 
+Optællingsmetrikken årsværk er opgjort som **HR's 'beregnede personaleforbrug' for august måned 2026** fra 
+Personalesammensætning på Tableauserveren. En oversigt over det beregnede personaleforbrug for KE/CA kan ses i 
+[denne Tableau-rapport](https://tableau.ku.dk/#/site/KU_BI/views/Personaleudvikling/StillingsfordelingtabelFakultet?:display_count=n&:iid=3&:origin=viz_share_link&:showAppBanner=false&:showVizHome=n).
 
 KUorg anvendes til at placere de enkelte ansatte på Niveau 4-afdelinger. Mellem de to datakilder er der 
-uoverensstemmelse for to personer, hvor data fra Personalesammensætning ikke stemmer overens med den 
+uoverensstemmelse for to personer, hvor data fra Personalesammensætning (én i KU ØKO, én i KU UDD) ikke stemmer overens med den 
 organisatoriske placering, KUorg angiver for personen. Begge tilfælde er blevet ekskluderet. 
 
 Derudover har to personer årsværk fordelt på flere KE/CA (Niveau 3) i Personalesammensætning - deres årsværk er fordelt
@@ -660,7 +661,7 @@ ud på de KE/CA og afdelinger, de reelt er tilknyttet.
 <hr style="margin-top: 50px;">
 <div style="text-align:center; color:#666; font-size: 0.9em;">
   REKSTAB Analyse · Amanda Schramm Petersen · <a href="mailto:ascp@adm.ku.dk">ascp@adm.ku.dk</a>
-  · opdateret 17. september 2026
+  · opdateret 18. september 2026
 </div>
 """, unsafe_allow_html=True)
 
