@@ -590,6 +590,8 @@ def main():
             unsafe_allow_html=True
         )
 
+        
+
     with col_title:
         st.title("Personaleoverblik")
         st.markdown("#### Materiale til A-DIR-seminar, 21. oktober 2026")
