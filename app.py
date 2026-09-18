@@ -591,7 +591,6 @@ def main():
         )
 
         
-
     with col_title:
         st.title("Personaleoverblik")
         st.markdown("#### Materiale til A-DIR-seminar, 21. oktober 2026")
@@ -642,6 +641,8 @@ de hører under, men er ikke brudt særskilt ned.
 Optællingsmetrikken årsværk er opgjort som **HR's 'beregnede personaleforbrug' for august måned 2026** fra 
 Personalesammensætning på Tableauserveren. En oversigt over det beregnede personaleforbrug for KE/CA kan ses i 
 [denne Tableau-rapport](https://tableau.ku.dk/#/site/KU_BI/views/Personaleudvikling/StillingsfordelingtabelFakultet?:display_count=n&:iid=3&:origin=viz_share_link&:showAppBanner=false&:showVizHome=n).
+
+HR's årsværkopgørelse fokuserer på medarbejdere, der er til rådighed for ledelsen (dvs. ikke ud fra et lønomkostningsperspektiv).
 
 KUorg anvendes til at placere de enkelte ansatte på Niveau 4-afdelinger. Mellem de to datakilder er der 
 uoverensstemmelse for to personer, hvor data fra Personalesammensætning (én i KU ØKO, én i KU UDD) ikke stemmer overens med den 
