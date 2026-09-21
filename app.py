@@ -608,11 +608,6 @@ def main():
     if not check_password():
         st.stop()
 
-    st.caption(
-    f"gatherUsageStats: {st.get_option('browser.gatherUsageStats')}"
-    )
-
-
     col_logo, col_title, col_download = st.columns([1, 4, 1])
 
     with col_logo:
@@ -621,7 +616,6 @@ def main():
             f'style="max-width:180px; width:100%;">',
             unsafe_allow_html=True
         )
-
         
     with col_title:
         st.title("Personaleoverblik")
