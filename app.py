@@ -608,6 +608,11 @@ def main():
     if not check_password():
         st.stop()
 
+    st.caption(
+    f"gatherUsageStats: {st.get_option('browser.gatherUsageStats')}"
+    )
+
+
     col_logo, col_title, col_download = st.columns([1, 4, 1])
 
     with col_logo:
