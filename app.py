@@ -591,9 +591,11 @@ def check_password():
     if st.session_state.get("password_korrekt", False):
         return True
 
-    st.text_input("Kodeord", type="password", on_change=password_entered, key="password")
-    if "password_korrekt" in st.session_state and not st.session_state["password_korrekt"]:
-        st.error("Forkert kodeord")
+    col_venstre, col_midt, col_hoejre = st.columns([1, 1, 1])
+    with col_midt:
+        st.text_input("Kodeord", type="password", on_change=password_entered, key="password")
+        if "password_korrekt" in st.session_state and not st.session_state["password_korrekt"]:
+            st.error("Forkert kodeord")
     return False
 
 def main():
