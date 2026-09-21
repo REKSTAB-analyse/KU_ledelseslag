@@ -1,3 +1,5 @@
+[browser]
+gatherUsageStats = false
 [theme]
 primaryColor = "#901a1E"
 [server]
