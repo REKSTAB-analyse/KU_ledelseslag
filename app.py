@@ -574,6 +574,27 @@ def render_omraader(by_id, metric, key_prefix):
         )
         st.plotly_chart(fig, key=f"{key_prefix}_omraader_niveau34", width="stretch")
 
+def check_password():
+    """
+    Viser et kodeords-felt og returnerer True, når det korrekte kodeord er
+    indtastet. Kodeordet selv ligger IKKE i koden (og dermed ikke synligt
+    på GitHub), men i st.secrets - se secrets.toml lokalt, og "Secrets"
+    under app'ens indstillinger på Streamlit Community Cloud.
+    """
+    def password_entered():
+        if st.session_state["password"] == st.secrets["app_password"]:
+            st.session_state["password_korrekt"] = True
+            del st.session_state["password"]  # fjern kodeordet fra hukommelsen igen
+        else:
+            st.session_state["password_korrekt"] = False
+
+    if st.session_state.get("password_korrekt", False):
+        return True
+
+    st.text_input("Kodeord", type="password", on_change=password_entered, key="password")
+    if "password_korrekt" in st.session_state and not st.session_state["password_korrekt"]:
+        st.error("Forkert kodeord")
+    return False
 
 def main():
     st.set_page_config(
@@ -581,6 +602,9 @@ def main():
         page_icon=load_logo(),
         layout="wide",
     )
+
+    if not check_password():
+        st.stop()
 
     col_logo, col_title, col_download = st.columns([1, 4, 1])
 
